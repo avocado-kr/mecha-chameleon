@@ -1,0 +1,1862 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#15171b">
+<title>카멜레온 숨바꼭질</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+  :root{
+    --bg:#15171b; --panel:rgba(24,26,31,.86); --line:#343944; --ink:#ebe7dc; --mute:#9b978b;
+    --hazard:#f0b429; --alarm:#e5484d; --calm:#8fb573;
+    --display:"Black Han Sans","Malgun Gothic",system-ui,sans-serif;
+    --body:"IBM Plex Sans KR","Malgun Gothic",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+    color-scheme:dark;
+  }
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  #view{position:fixed;inset:0}
+  #view canvas{display:block;touch-action:none;cursor:grab}
+  #view canvas:active{cursor:grabbing}
+  #view.painting canvas,#view.painting canvas:active{cursor:crosshair}
+  .cvWrap{position:relative}
+  .cvWrap span{position:absolute;top:0;bottom:0;box-sizing:border-box;border-left:1px dashed #fff;padding:1px 4px;font-size:10px;color:#fff;mix-blend-mode:difference;pointer-events:none}
+  #hurt{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 120px 40px rgba(229,72,77,.85);opacity:0;transition:opacity .35s}
+
+  .panel{background:var(--panel);border:1px solid var(--line);padding:8px 12px;backdrop-filter:blur(4px)}
+  .hud{position:fixed;top:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none;flex-wrap:wrap}
+  .lbl{font-size:11px;color:var(--mute);letter-spacing:.06em}
+  .seekerBox{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:270px}
+  .seekerName{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:20px;line-height:1.2}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;flex:none;border:1px solid rgba(255,255,255,.35)}
+  .trait{font-size:12px;color:#d6d2c6}
+  .timerBox{text-align:center;min-width:130px}
+  .timer{font-family:var(--mono);font-weight:700;font-size:30px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .timer.warn{color:var(--hazard)}
+  .hiders{display:flex;flex-direction:column;gap:3px;min-width:130px}
+  .chip{display:flex;align-items:center;gap:8px;font-size:13px}
+  .chip b{font-weight:600}
+  .chip small{margin-left:auto;color:var(--mute);font-size:11px}
+  .chip.out{opacity:.45}
+  .chip.out b{text-decoration:line-through}
+  .chip.me b{color:var(--hazard)}
+
+  .status{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;min-width:min(460px,calc(100vw - 32px));pointer-events:none}
+  .srow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:13px;color:var(--mute)}
+  .srow b{color:var(--ink);font-weight:600}
+  .sw{display:inline-block;width:14px;height:14px;vertical-align:-2px;border:1px solid rgba(255,255,255,.3);margin-right:5px}
+  .hid{color:var(--calm)!important} .exp{color:var(--alarm)!important} .mid{color:var(--hazard)!important}
+  #hp{color:var(--alarm);font-size:16px;letter-spacing:2px}
+  .meter{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--mute)}
+  .bar{flex:1;height:8px;background:#2a2e36;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--calm)}
+  #eye{font-family:var(--mono);font-weight:700;min-width:80px;text-align:right}
+
+  .legend{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mute);pointer-events:none;text-align:right}
+  kbd{font-family:var(--mono);font-size:11px;color:var(--ink);border:1px solid #4a4f59;border-bottom-width:2px;padding:0 5px;background:#22252b}
+  @media (max-width:1150px){.legend{display:none}}
+
+  .toast{position:fixed;left:50%;top:92px;transform:translate(-50%,-6px);background:#15171b;color:var(--ink);border:1px solid var(--hazard);padding:5px 14px;font-size:14px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+  .roomBanner{position:fixed;left:50%;top:134px;transform:translate(-50%,-6px);font-size:30px;font-weight:700;letter-spacing:.04em;color:var(--ink);text-shadow:0 2px 8px #000c;opacity:0;transition:opacity .35s,transform .35s;pointer-events:none;white-space:nowrap}
+  .roomBanner.on{opacity:1;transform:translate(-50%,0)}
+  .spec{position:fixed;left:50%;top:132px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;z-index:6;text-align:center;max-width:calc(100vw - 32px);box-sizing:border-box}
+  .spec[hidden]{display:none}
+  .specRow{display:flex;align-items:center;gap:10px}
+  .specRow b{font-family:var(--display);font-size:20px;min-width:140px}
+  .spec small{color:var(--mute);font-size:11px}
+  /* eyedropper (P): the mouse turns into a magnifying glass; the lens centre is the pick point */
+  body.picking, body.picking *{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='12' cy='12' r='9' fill='rgba(255,255,255,.25)' stroke='%2315171b' stroke-width='4'/%3E%3Ccircle cx='12' cy='12' r='9' fill='none' stroke='%23ffc94d' stroke-width='2'/%3E%3Cline x1='19' y1='19' x2='29' y2='29' stroke='%2315171b' stroke-width='6' stroke-linecap='round'/%3E%3Cline x1='19' y1='19' x2='29' y2='29' stroke='%23ffc94d' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%23e5484d'/%3E%3C/svg%3E") 12 12, crosshair !important}
+
+  /* paint panel */
+  .paint{position:fixed;left:16px;top:50%;transform:translateY(-50%);width:min(420px,calc(100vw - 32px));display:none;flex-direction:column;gap:10px;z-index:5;max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box}
+  .paint.on{display:flex}
+  .paint h3{margin:0;font-family:var(--display);font-weight:400;font-size:20px;display:flex;justify-content:space-between;align-items:center}
+  .paint h3 button{font-family:var(--body);font-size:12px}
+  .paint canvas{width:100%;aspect-ratio:2/1;cursor:crosshair;border:1px solid var(--line);touch-action:none;display:block;box-sizing:border-box}
+  #palRow{flex:1;min-width:0}
+  .prow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--mute)}
+  .prow .lbl{min-width:48px}
+  .pbtn{background:#22252b;border:1px solid var(--line);color:var(--ink);padding:5px 10px;cursor:pointer;font-family:var(--body);font-size:13px}
+  .pbtn:hover{border-color:#5a606c}
+  .pbtn.on{border-color:var(--hazard);color:var(--hazard)}
+  .swb{width:28px;height:28px;border:1px solid rgba(255,255,255,.3);cursor:pointer;padding:0;position:relative}
+  #palRow .swb{width:22px;height:22px}
+  input[type=color]{width:44px;height:30px;border:1px solid var(--line);background:none;padding:0;cursor:pointer}
+  input[type=range]{flex:1;accent-color:var(--hazard)}
+  .match{font-family:var(--mono);font-weight:700;font-size:18px}
+
+  .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(14,15,18,.78);padding:16px;overflow:auto;text-align:center;z-index:10}
+  .overlay[hidden]{display:none}
+  .card{max-width:540px;display:flex;flex-direction:column;gap:14px;align-items:center;background:rgba(21,23,27,.92);border:1px solid var(--line);padding:24px 22px;position:relative}
+  .card::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(-45deg,var(--hazard) 0 10px,#15171b 10px 20px)}
+  .card h2{font-family:var(--display);font-weight:400;font-size:clamp(26px,5vw,38px);margin:0;line-height:1.15;text-wrap:balance}
+  .card h2.bad{color:var(--alarm)} .card h2.good{color:var(--hazard)}
+  .card p{margin:0;color:#d6d2c6;max-width:60ch;text-wrap:pretty}
+  .keys{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;font-size:13px;color:var(--mute)}
+  .stats{display:flex;gap:22px;font-family:var(--mono);font-variant-numeric:tabular-nums;flex-wrap:wrap;justify-content:center}
+  .stats div{display:flex;flex-direction:column;align-items:center}
+  .stats small{font-family:var(--body);font-size:11px;color:var(--mute)}
+  .stats b{font-size:22px}
+  .next{display:flex;align-items:center;gap:10px;border:1px solid var(--line);padding:8px 14px;text-align:left}
+  .next .dot{width:18px;height:18px}
+  .next b{font-family:var(--display);font-weight:400;font-size:20px}
+  .next span{display:block;font-size:12px;color:var(--mute)}
+  button.go{font-family:var(--display);font-size:20px;background:var(--hazard);color:#15171b;border:0;padding:10px 30px;cursor:pointer}
+  button.go:hover{background:#ffc94d}
+  button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+  .pad{position:fixed;left:0;right:0;bottom:0;display:none;justify-content:space-between;align-items:flex-end;pointer-events:none;
+       padding:12px max(16px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  /* virtual joystick: push a little = sneak, push all the way = run */
+  .joy{position:relative;width:132px;height:132px;border-radius:50%;background:rgba(30,33,39,.55);border:1px solid var(--line);pointer-events:auto;touch-action:none;flex:none}
+  .joy::before{content:"";position:absolute;inset:30%;border-radius:50%;border:1px dashed rgba(235,231,220,.25)}
+  .joy i{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:rgba(235,231,220,.85);box-shadow:0 2px 8px #0008;pointer-events:none}
+  .joy.on{border-color:var(--hazard)}
+  .pad button{background:rgba(30,33,39,.85);border:1px solid var(--line);color:var(--ink);font-size:18px;touch-action:none;user-select:none;-webkit-user-select:none;font-family:var(--body)}
+  .pad button.on{background:#3a3f49;border-color:var(--hazard);color:var(--hazard)}
+  .acts{display:grid;grid-template-columns:repeat(3,62px);gap:6px;pointer-events:auto}
+  .acts button{height:48px;font-size:13px;padding:0}
+  .acts .jump{grid-column:span 3;height:56px;background:var(--hazard);color:#15171b;border:0;font-weight:600;font-size:16px}
+  .touchOnly{display:none}
+  @media (pointer:coarse){
+    .pad{display:flex}
+    .status{bottom:calc(196px + env(safe-area-inset-bottom))}
+    .legend,.keys,.kbdOnly{display:none!important}
+    .touchOnly{display:block}
+    .hud{padding-top:max(12px,env(safe-area-inset-top))}
+  }
+  /* phone held sideways: little height, so the status bar sits between the joystick and the buttons */
+  @media (pointer:coarse) and (max-height:520px){
+    .hud{padding:6px max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left))}
+    .hud .panel{padding:4px 8px}
+    .seekerName{font-size:15px}
+    .trait,.hiders .lbl{display:none}
+    .timer{font-size:22px}
+    .hiders{flex-direction:row;flex-wrap:wrap;gap:2px 10px;max-width:260px}
+    .chip{font-size:11px;gap:4px}
+    .status{bottom:calc(8px + env(safe-area-inset-bottom));min-width:0;width:calc(100vw - 420px);max-width:420px;padding:5px 10px;gap:3px}
+    .srow{font-size:11px;gap:2px 10px}
+    .srow .opt{display:none}
+    .toast{top:70px}
+    .roomBanner{top:104px;font-size:22px}
+    .spec{top:70px}
+    .paint{max-height:calc(100vh - 16px);top:8px;transform:none}
+    .joy{width:116px;height:116px}
+    .acts{grid-template-columns:repeat(3,56px)}
+    .acts button{height:42px}
+    .acts .jump{height:48px}
+  }
+  @media (max-width:640px){
+    .hud{padding:8px}
+    .timer{font-size:24px}
+    .seekerName{font-size:16px}
+    .trait{display:none}
+    .toast{top:120px}
+    .roomBanner{top:160px;font-size:24px}
+    .paint{left:8px;right:8px;width:auto;top:auto;bottom:8px;transform:none;max-height:62vh}
+  }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="hurt"></div>
+
+<div class="hud">
+  <div class="panel seekerBox">
+    <span class="lbl" id="roundLbl">ROUND 1 · 술래</span>
+    <span class="seekerName"><span class="dot" id="seekerDot"></span><span id="seekerName">-</span></span>
+    <span class="trait" id="seekerTrait">-</span>
+  </div>
+  <div class="panel timerBox">
+    <span class="lbl" id="phaseLbl">숨는 시간</span>
+    <div class="timer" id="timer">0:30</div>
+  </div>
+  <div class="panel hiders" id="hiders"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="roomBanner" id="roomBanner"></div>
+
+<div class="status panel">
+  <div class="srow">
+    <span>체력 <b id="hp">♥♥♥</b></span>
+    <span class="opt">위치 <b id="roomTxt">-</b></span>
+    <span>몸 <span class="sw" id="bodySw"></span></span>
+    <span class="opt">배경 <span class="sw" id="bgSw"></span></span>
+    <span>일치 <b id="matchTxt">-</b></span>
+    <span>상태 <b id="visTxt">-</b></span>
+  </div>
+  <div class="meter"><span>발각</span><div class="bar" id="susBar"><i></i></div><span id="eye">-</span></div>
+</div>
+
+<div class="legend">
+  <span><kbd>WASD</kbd> 이동 · <kbd>Shift</kbd> 살금살금 · <kbd>Space</kbd> 점프</span>
+  <span><kbd>C</kbd> 몸에 색 직접 칠하기</span>
+  <span>마우스 드래그 / <kbd>Q</kbd><kbd>E</kbd> 시점 · 휠 줌</span>
+  <span>시점을 낮추면 천장이 보여요</span>
+  <span><kbd>P</kbd> 스포이드 (화면을 클릭해 색 뽑기)</span>
+  <span><kbd>T</kbd> 포즈 바꾸기 · <kbd>1</kbd> 기본 <kbd>2</kbd> T포즈 <kbd>3</kbd> 눕기</span>
+  <span><kbd>R</kbd> 제자리 고정 · <kbd>Esc</kbd> 일시정지</span>
+</div>
+
+<div class="paint panel" id="paint">
+  <h3>몸에 그리기 <button class="pbtn" id="paintClose">닫기 (C)</button></h3>
+  <div class="cvWrap">
+    <canvas id="paintCv" width="256" height="128" aria-label="몸 무늬 캔버스"></canvas>
+    <span style="left:0;border-left:0">머리</span><span style="left:50%">몸통</span><span style="left:75%">팔 · 다리</span>
+  </div>
+  <div class="prow"><span class="lbl">도구</span>
+    <button class="pbtn" id="pickBtn">스포이드 (P)</button>
+    <button class="pbtn on" data-tool="brush">붓</button>
+    <button class="pbtn" data-tool="erase">지우개</button>
+  </div>
+  <div class="prow"><span class="lbl">굵기</span><input type="range" id="size" min="3" max="48" value="16"></div>
+  <div class="prow"><span class="lbl">색</span><input type="color" id="pColor" value="#6f8f5a"></div>
+  <div class="prow"><span class="lbl">집 물감</span><span id="palRow" class="prow"></span></div>
+  <div class="prow" style="justify-content:space-between"><span>몸 평균색과 배경의 일치율</span><span class="match" id="pMatch">-</span></div>
+  <div class="prow" style="font-size:11px"><span><b style="color:var(--ink)">캐릭터 몸 위를 직접 드래그</b>하면 그 자리에 칠해져요 (몸 바깥을 드래그하면 시점 회전). 위 캔버스는 몸을 펼친 그림이라 여기에 그려도 됩니다. 평균색이 뒤에 있는 바닥·벽·가구 색과 비슷할수록 술래 눈에 안 보여요.</span></div>
+</div>
+
+<div class="pad" id="pad">
+  <div class="joy" id="joy" aria-label="이동 조이스틱"><i></i></div>
+  <div class="acts">
+    <button id="paintBtn">그리기</button>
+    <button id="pickBtn2">스포이드</button>
+    <button id="pauseBtn" aria-label="일시정지">⏸</button>
+    <button id="sneakBtn">살금</button>
+    <button id="freezeBtn">고정</button>
+    <button id="poseBtn">포즈</button>
+    <button class="jump" id="jumpBtn">점프</button>
+  </div>
+</div>
+
+<div class="spec panel" id="spec" hidden>
+  <span class="lbl">관전 중</span>
+  <div class="specRow"><button class="pbtn" id="specPrev" aria-label="이전">◀</button><b id="specName">-</b><button class="pbtn" id="specNext" aria-label="다음">▶</button></div>
+  <small class="kbdOnly"><kbd>A</kbd>/<kbd>D</kbd> 또는 <kbd>←</kbd>/<kbd>→</kbd> 전환 · <kbd>Enter</kbd> 결과 보기</small>
+  <button class="pbtn" id="specEnd">결과 보기</button>
+</div>
+
+<div class="overlay" id="ov"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  /* ---------- constants ---------- */
+  const N = 32, C = N/2;             // 32x32 incl. the cube wall ring -> 13 rooms
+  const HIDE_TIME = 30, SEEK_TIME = 120;
+  const MAP_NAME = '집';
+  const HONK_EVERY = 25;              // seconds between honks that give away where the hiders are
+  const WALL_H = 2.6;                // walls reach the ceiling
+  const EYE = .85, GRAV = 24, JUMP_V = 7.4;
+  const PLAYER_HP = 3, NPC_HP = 2;
+  const PLAYER = {name:'나', color:'#f4f4f4'};   // plain white person until you paint it
+  const SEEKER_BLUE = '#2f6fe0';
+  const HUMAN_SCALE = .72;           // everyone is drawn smaller (hit box shrinks with it)
+  const BODY_Y = .4*HUMAN_SCALE;     // height of a standing hider's chest = where seekers look and aim
+  const SEEKER_COUNT = 3;            // how many seekers hunt at once
+  const IQ = 1.5;                    // seeker intelligence multiplier
+  const EXTRA_HIDERS = [{name:'토토', color:'#5fbf8f'}, {name:'나나', color:'#e38fb0'}, {name:'지지', color:'#c97b3c'}];
+  const CHARS = [
+    {name:'레오', color:'#e0533f', trait:'빠르고 총을 난사해요 · 시야가 좁아요',   speed:2.7, fov:.52, range:7,   hear:3,   sniff:1.5, sharp:1,   propW:1.6, look:1.0, fireRate:.42, spread:.09,  bulletSpeed:17},
+    {name:'모모', color:'#3f8fe0', trait:'저격수 · 멀리 보고 정확하게 쏴요',       speed:1.9, fov:.72, range:10,  hear:2.5, sniff:1.5, sharp:1.5, propW:1.6, look:1.5, fireRate:1.25, spread:.022, bulletSpeed:26},
+    {name:'루나', color:'#a46be0', trait:'귀가 밝아요 · 뛰거나 착지하면 소리를 듣고 와요',   speed:2.1, fov:.62, range:7.5, hear:6.5, sniff:1.6, sharp:1,   propW:1.6, look:1.3, fireRate:.7,  spread:.06,  bulletSpeed:20},
+    {name:'코코', color:'#f2c230', trait:'꼼꼼해요 · 벽 옆을 샅샅이 뒤져요',       speed:2.0, fov:.62, range:8,   hear:3.5, sniff:2.3, sharp:1.2, propW:4,   look:2.2, fireRate:.8,  spread:.05,  bulletSpeed:20},
+  ];
+
+  const $ = id => document.getElementById(id);
+  const rnd = (a,b) => a + Math.random()*(b-a);
+  const ri = (a,b) => Math.floor(rnd(a,b+1));
+  const idx = (x,y) => y*N + x;
+  const inB = (x,y) => x>=0 && y>=0 && x<N && y<N;
+  const cellI = (x,z) => idx(Math.floor(x), Math.floor(z));
+  const angDiff = (a,b) => Math.atan2(Math.sin(a-b), Math.cos(a-b));
+  const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+  const hexRgb = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
+  const rgbHex = c => '#' + c.map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+  const rgbCss = c => `rgb(${c.map(Math.round).join(',')})`;
+  const cdist = (p,q) => Math.hypot(p[0]-q[0], p[1]-q[1], p[2]-q[2]);
+  const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+
+  if (!window.THREE){
+    document.body.innerHTML = '<p style="padding:24px">3D 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침하세요.</p>';
+    return;
+  }
+  const GREY = new THREE.Color('#6b6b6b'), WHITE = new THREE.Color('#ffffff');
+
+  /* ---------- three.js setup ---------- */
+  const TOUCH = matchMedia('(pointer:coarse)').matches;   // phones/tablets: lighter rendering + on-screen controls
+  const renderer = new THREE.WebGLRenderer({antialias:!TOUCH});
+  renderer.setPixelRatio(Math.min(TOUCH ? 1.5 : 2, devicePixelRatio || 1));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  $('view').appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x15171b);
+  scene.fog = new THREE.Fog(0x15171b, 42, 84);
+  const camera = new THREE.PerspectiveCamera(55, 1, .1, 170);
+
+  scene.add(new THREE.HemisphereLight(0xe4ecff, 0x3a3326, .75));
+  const sun = new THREE.DirectionalLight(0xfff1dd, .85);
+  sun.position.set(C+12, 32, C+8); sun.target.position.set(C,0,C);
+  sun.castShadow = true; sun.shadow.mapSize.set(TOUCH ? 2048 : 4096, TOUCH ? 2048 : 4096);
+  Object.assign(sun.shadow.camera, {left:-C-4, right:C+4, top:C+4, bottom:-C-4, near:1, far:80});
+  sun.shadow.bias = -0.0008;
+  scene.add(sun, sun.target);
+
+  const mapGroup = new THREE.Group(), agentGroup = new THREE.Group(), fxGroup = new THREE.Group();
+  scene.add(mapGroup, agentGroup, fxGroup);
+
+  /* ---------- paint texture (player's body) ---------- */
+  const paintCv = $('paintCv'), pctx = paintCv.getContext('2d');
+  const paintTex = new THREE.CanvasTexture(paintCv);
+  function defaultPaint(){
+    pctx.fillStyle = PLAYER.color; pctx.fillRect(0,0,256,128);
+    paintTex.needsUpdate = true; recalcAvg();
+  }
+
+  function clearGroup(g){
+    while (g.children.length){
+      const o = g.children.pop();
+      o.traverse(m => {
+        if (m.userData.shared) return;
+        if (m.geometry) m.geometry.dispose();
+        if (m.material){ if (m.material.map && m.material.map!==paintTex) m.material.map.dispose(); m.material.dispose(); }
+      });
+    }
+  }
+
+  /* ---------- house map ---------- */
+  let M = null;
+  const fading = new Set(), hideSet = new Set();   // wall cells currently see-through / blocking the camera
+  const pick =a => a[ri(0,a.length-1)];
+  const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=ri(0,i); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+  const shadeCol = (hex,f) => rgbCss(hexRgb(hex).map(v => Math.min(255, v*f)));
+  const WOOD = ['#8a5a3b','#a0704a','#6e4a33','#c49a6c'];
+  const FABRIC = ['#5b6c8f','#8f4f4f','#6f8f5a','#c9a45c','#8a7aa6','#d8d2c4','#3f5a5a','#b86f3c'];
+  const BRIGHT = ['#e0533f','#3f8fe0','#f2c230','#6fbf5a','#e38fb0'];
+  const PORCELAIN = ['#f2f1ec','#e6e4dc'];
+  const COLOR_OF = {
+    sofa:FABRIC, armchair:FABRIC, tv:WOOD, bookshelf:[...WOOD,'#e9e4da'], plant:['#4f7a3a','#5f8f45','#3f6a3a'], lamp:['#f0e2b6','#e8c8a0','#d8d2c4'],
+    counter:['#e9e4da','#6f8f5a','#3f5a6a','#c9a45c'], fridge:['#dfe3e6','#c0c6cc','#e9e4da'], table:WOOD, desk:WOOD, bed:FABRIC,
+    wardrobe:[...WOOD,'#e9e4da'], nightstand:WOOD, toybox:BRIGHT, tub:PORCELAIN, toilet:PORCELAIN, sink:PORCELAIN,
+    washer:PORCELAIN, shelf:['#8a8f96','#6e4a33'], boxes:['#b08a5a','#9c7a4e','#c49a6c'],
+    coffeetable:WOOD, chair:WOOD, piano:['#1b1b1f','#3a2a22','#f2f1ec'], dresser:[...WOOD,'#e9e4da'], shoerack:WOOD, teepee:[...BRIGHT,'#d8d2c4'],
+  };
+  const HEIGHTS = {sofa:.8, armchair:.8, tv:1.25, bookshelf:1.8, plant:1.2, lamp:1.6, counter:.95, fridge:1.9, table:.78, desk:.8,
+                   bed:.65, wardrobe:1.9, nightstand:.6, toybox:.5, tub:.6, toilet:.55, sink:.9, washer:.9, shelf:1.6,
+                   coffeetable:.45, chair:.5, piano:1.2, dresser:.9, shoerack:1.0, teepee:1.6};
+  const ROOMS = [
+    {name:'거실', x0:10,y0:10,x1:21,y1:21, floor:'wood', fc:['#b98a5e','#9c6f47','#c9a06f'], wall:['#e8dcc6','#d9cbb0','#c9d6c0'], rug:'rect',
+      items:[['sofa',3,1],['sofa',3,1],['tv',3,1],['armchair',1,1],['armchair',1,1],['bookshelf',2,1],['bookshelf',2,1],['piano',2,1],['dresser',2,1],
+             ['coffeetable',2,1,'free'],['coffeetable',2,1,'free'],['plant',1,1],['plant',1,1],['plant',1,1],['lamp',1,1],['lamp',1,1]]},
+    {name:'주방', x0:10,y0:1,x1:15,y1:8, floor:'checker', fc:['#e6e1d6','#3f4650','#b8c4c9','#a8584a'], wall:['#dfe7e2','#f0e6d2'],
+      items:[['counter',4,1],['counter',3,1],['fridge',1,1],['counter',2,1,'free'],['shelf',2,1],['plant',1,1]]},
+    {name:'식당', x0:17,y0:1,x1:21,y1:8, floor:'wood', fc:['#a0704a','#8a5a3b','#c49a6c'], wall:['#f0e6d2','#e3d3c0','#d6e0d2'], rug:'rect',
+      items:[['table',3,2,'free'],['chair',1,1,'free'],['chair',1,1,'free'],['chair',1,1,'free'],['chair',1,1,'free'],['dresser',2,1],['plant',1,1],['lamp',1,1]]},
+    {name:'서재', x0:10,y0:23,x1:15,y1:30, floor:'wood', fc:['#6e4a33','#5a3b28','#7d5a3e'], wall:['#c8b89a','#9fae9a','#4f6a5a'],
+      items:[['desk',2,1],['desk',2,1],['bookshelf',2,1],['bookshelf',2,1],['bookshelf',2,1],['armchair',1,1],['plant',1,1],['boxes',1,1],['lamp',1,1]]},
+    {name:'현관', x0:17,y0:23,x1:21,y1:30, floor:'tile', fc:['#b8ad9c','#9c9488','#c9c2b4'], wall:['#e6dfd2','#d2d8dc'],
+      items:[['shoerack',2,1],['shoerack',2,1],['wardrobe',2,1],['plant',1,1],['plant',1,1],['boxes',1,1],['lamp',1,1]]},
+    {name:'안방', x0:1,y0:10,x1:8,y1:15, floor:'carpet', fc:['#c9b79c','#a8a0b8','#9fb3a8'], wall:['#e3d3d8','#d6e0e6'], rug:'rect',
+      items:[['bed',2,3],['wardrobe',2,1],['nightstand',1,1],['nightstand',1,1],['dresser',2,1],['armchair',1,1],['plant',1,1],['lamp',1,1]]},
+    {name:'드레스룸', x0:1,y0:17,x1:8,y1:21, floor:'wood', fc:['#d2b48c','#b08968'], wall:['#efe1d1','#d8c3e0'],
+      items:[['wardrobe',2,1],['wardrobe',2,1],['wardrobe',2,1],['dresser',2,1],['dresser',2,1],['lamp',1,1],['plant',1,1]]},
+    {name:'아이방', x0:23,y0:10,x1:30,y1:15, floor:'carpet', fc:['#8fb3d9','#e3b5c4','#b5d98f'], wall:['#fbe7a1','#cfe8f5','#f5d0dc'], rug:'round',
+      items:[['bed',2,3],['desk',2,1],['toybox',1,1],['toybox',1,1],['bookshelf',2,1],['plant',1,1]]},
+    {name:'놀이방', x0:23,y0:17,x1:30,y1:21, floor:'carpet', fc:['#e8c77a','#9ad0c2','#f0a58f'], wall:['#d8ecd0','#fde2c8','#dcd6f2'], rug:'round',
+      items:[['teepee',2,2,'free'],['toybox',1,1],['toybox',1,1],['toybox',1,1],['shelf',2,1],['armchair',1,1],['plant',1,1]]},
+    {name:'욕실', x0:1,y0:1,x1:8,y1:8, floor:'smalltile', fc:['#dfe9ee','#a9c7d3','#f0f0f0'], wall:['#cfe3ea','#ffffff'],
+      items:[['tub',3,1],['toilet',1,1],['sink',1,1],['sink',1,1],['shelf',2,1],['plant',1,1],['plant',1,1]]},
+    {name:'세탁실', x0:23,y0:1,x1:30,y1:8, floor:'tile', fc:['#bfc4c9','#d9d4c5'], wall:['#e0e0e0','#c8d6c8'],
+      items:[['washer',1,1],['washer',1,1],['washer',1,1],['counter',3,1],['shelf',2,1],['shelf',2,1],['toybox',1,1],['boxes',1,1],['boxes',1,1]]},
+    {name:'창고', x0:1,y0:23,x1:8,y1:30, floor:'tile', fc:['#8c8c84','#7a7468'], wall:['#b3a58c','#9a9a90'],
+      items:[['shelf',2,1],['shelf',2,1],['shelf',2,1],['boxes',1,1],['boxes',1,1],['boxes',1,1],['boxes',1,1],
+             ['boxes',1,1,'free'],['boxes',1,1,'free'],['boxes',1,1,'free'],['boxes',1,1,'free']]},
+    {name:'손님방', x0:23,y0:23,x1:30,y1:30, floor:'wood', fc:['#c49a6c','#a88560','#d8b88c'], wall:['#dfe3d0','#e8d8c8','#cfd8e6'], rug:'rect',
+      items:[['bed',2,3],['wardrobe',2,1],['tv',3,1],['nightstand',1,1],['desk',2,1],['armchair',1,1],['plant',1,1],['lamp',1,1]]},
+  ];
+  const DOORS = [
+    [12,9],[13,9],[18,9],[19,9],[16,4],[16,5],            // 거실-주방, 거실-식당, 주방-식당
+    [12,22],[13,22],[18,22],[19,22],[16,26],[16,27],      // 거실-서재, 거실-현관, 서재-현관
+    [9,12],[9,13],[9,18],[9,19],[4,16],[5,16],            // 거실-안방, 거실-드레스룸, 안방-드레스룸
+    [22,12],[22,13],[22,18],[22,19],[26,16],[27,16],      // 거실-아이방, 거실-놀이방, 아이방-놀이방
+    [4,9],[5,9],[9,4],[9,5],                              // 욕실
+    [22,4],[22,5],[26,9],[27,9],                          // 세탁실
+    [4,22],[5,22],[9,26],[9,27],                          // 창고
+    [26,22],[27,22],[22,26],[22,27],                      // 손님방
+  ];
+  const SPAWN_ZONE = (x,y) => x>=14 && x<=18 && y>=14 && y<=19;
+
+  function generateMap(){
+    // room of each cell (doors borrow a neighbouring room's floor)
+    const roomOf = new Int8Array(N*N).fill(-1);
+    ROOMS.forEach((r,ri_) => { for (let y=r.y0;y<=r.y1;y++) for (let x=r.x0;x<=r.x1;x++) roomOf[idx(x,y)] = ri_; });
+    const isDoor = new Uint8Array(N*N); for (const [x,y] of DOORS) isDoor[idx(x,y)] = 1;
+    for (const [x,y] of DOORS) for (const [dx,dy] of DIRS){ const r = roomOf[idx(x+dx,y+dy)]; if (r>=0){ roomOf[idx(x,y)] = r; break; } }
+
+    // per-round colours
+    const RC = ROOMS.map(r => { const wall = pick(r.wall); return {fcol:shuffle(r.fc), wall, ceil:rgbCss(hexRgb(wall).map(v => (v*.3 + 178)*.84))}; });
+
+    // doorway-adjacent cells stay clear
+    const forb = new Uint8Array(N*N);
+    for (const [x,y] of DOORS) for (const [dx,dy] of DIRS){ const nx=x+dx, ny=y+dy; if (inB(nx,ny)) forb[idx(nx,ny)] = 1; }
+    for (let y=0;y<N;y++) for (let x=0;x<N;x++) if (SPAWN_ZONE(x,y)) forb[idx(x,y)] = 1;
+
+    for (let tries=0; tries<120; tries++){
+      const H = new Float32Array(N*N), srgb = new Array(N*N).fill(null), props = [];
+      // square cube walls: everything that is not a room or a doorway
+      for (let y=0;y<N;y++) for (let x=0;x<N;x++){
+        const i = idx(x,y);
+        if (roomOf[i]>=0 && (isDoor[i] || (x>=ROOMS[roomOf[i]].x0 && x<=ROOMS[roomOf[i]].x1 && y>=ROOMS[roomOf[i]].y0 && y<=ROOMS[roomOf[i]].y1))) continue;
+        let col = '#e8dcc6';
+        for (const [dx,dy] of [[0,1],[1,0],[0,-1],[-1,0]]){ const nx=x+dx, ny=y+dy; if (inB(nx,ny) && roomOf[idx(nx,ny)]>=0 && !isDoor[idx(nx,ny)]){ col = RC[roomOf[idx(nx,ny)]].wall; break; } }
+        H[i] = WALL_H; srgb[i] = hexRgb(col);
+        const edgeX = y===0 || y===N-1, edgeZ = x===0 || x===N-1;
+        const win = edgeX && !edgeZ && x%4===2 ? 'x' : edgeZ && !edgeX && y%4===2 ? 'z' : null;   // windows on the outer walls
+        props.push({t:'wall', x, y, w:1, h:1, color:col, height:WALL_H, win});
+      }
+      // furniture
+      let failed = false;
+      ROOMS.forEach(room => {
+        for (const [t,L,D,mode] of room.items){
+          let placed = null;
+          for (let k=0; k<80 && !placed; k++){
+            let x, y, w, h, rot = 0;
+            if (mode==='free'){
+              const r = ri(0,3); rot = r*Math.PI/2;
+              if (r%2){ w=D; h=L; } else { w=L; h=D; }
+              x=ri(room.x0+1, room.x1-w); y=ri(room.y0+1, room.y1-h);
+            } else {
+              const side = ri(0,3);
+              if (side<2){ w=L; h=D; x=ri(room.x0, room.x1-w+1); y = side===0 ? room.y0 : room.y1-h+1; rot = side===0 ? 0 : Math.PI; }
+              else { w=D; h=L; y=ri(room.y0, room.y1-h+1); x = side===2 ? room.x0 : room.x1-w+1; rot = side===2 ? Math.PI/2 : -Math.PI/2; }
+            }
+            if (x<room.x0 || y<room.y0 || x+w-1>room.x1 || y+h-1>room.y1) continue;
+            let ok = true;
+            for (let yy=y; yy<y+h && ok; yy++) for (let xx=x; xx<x+w; xx++){ const i=idx(xx,yy); if (H[i]>0 || forb[i]){ ok=false; break; } }
+            if (ok) placed = {t, x, y, w, h, L, D, rot};
+          }
+          if (!placed){ if (t==='sofa' || t==='bed' || t==='tub' || t==='fridge') failed = true; continue; }
+          placed.color = pick(COLOR_OF[t]);
+          placed.height = t==='boxes' ? pick([.45,.9,1.35]) : HEIGHTS[t];
+          props.push(placed);
+          for (let yy=placed.y; yy<placed.y+placed.h; yy++) for (let xx=placed.x; xx<placed.x+placed.w; xx++){
+            const i = idx(xx,yy); H[i] = placed.height; srgb[i] = hexRgb(placed.color);
+          }
+        }
+      });
+      if (failed) continue;
+
+      const blocked = new Uint8Array(N*N); for (let i=0;i<N*N;i++) blocked[i] = H[i]>0 ? 1 : 0;
+      const seen = new Uint8Array(N*N), q = [idx(C,C)]; seen[q[0]] = 1;
+      for (let i=0;i<q.length;i++){
+        const c=q[i], x=c%N, y=(c/N)|0;
+        for (const [dx,dy] of DIRS){ const nx=x+dx, ny=y+dy; if (!inB(nx,ny)) continue; const n=idx(nx,ny); if (blocked[n]||seen[n]) continue; seen[n]=1; q.push(n); }
+      }
+      let conn = true; for (let i=0;i<N*N;i++) if (!blocked[i] && !seen[i]){ conn=false; break; }
+      if (!conn) continue;
+
+      const propAdj = new Uint8Array(N*N), free = [];
+      for (let y=0;y<N;y++) for (let x=0;x<N;x++){
+        const i = idx(x,y); if (blocked[i]) continue;
+        free.push(i);
+        for (const [dx,dy] of DIRS){ const nx=x+dx, ny=y+dy; if (inB(nx,ny) && blocked[idx(nx,ny)]) propAdj[i]=1; }
+      }
+      const m = {H, srgb, blocked, props, propAdj, free, roomOf, RC, floorRGB:[]};
+      drawFloor(m);
+      return m;
+    }
+    return null;
+  }
+
+  /* floor texture: wood planks, tiles, carpet, rugs — and each cell's average colour for camouflage */
+  const FPX = 32;
+  function drawFloor(m){
+    const cv = document.createElement('canvas'); cv.width = cv.height = N*FPX;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#6b655c'; c.fillRect(0,0,cv.width,cv.height);
+    for (let y=0;y<N;y++) for (let x=0;x<N;x++){
+      const r = m.roomOf[idx(x,y)]; if (r<0) continue;
+      const room = ROOMS[r], f = m.RC[r].fcol, X = x*FPX, Y = y*FPX;
+      if (room.floor==='wood'){
+        for (let k=0;k<4;k++){
+          c.fillStyle = shadeCol(f[0], rnd(.86,1.06)); c.fillRect(X, Y+k*8, FPX, 8);
+          c.fillStyle = 'rgba(0,0,0,.2)'; c.fillRect(X, Y+k*8+7, FPX, 1);
+          if (Math.random()<.4) c.fillRect(X+ri(3,29), Y+k*8, 1, 8);
+        }
+      } else if (room.floor==='checker'){
+        c.fillStyle = (x+y)%2 ? f[0] : f[1]; c.fillRect(X,Y,FPX,FPX);
+        c.fillStyle = 'rgba(255,255,255,.18)'; c.fillRect(X,Y,FPX,1); c.fillRect(X,Y,1,FPX);
+      } else if (room.floor==='tile'){
+        c.fillStyle = shadeCol(f[0], rnd(.94,1.04)); c.fillRect(X,Y,FPX,FPX);
+        c.fillStyle = 'rgba(0,0,0,.2)'; c.fillRect(X,Y,FPX,2); c.fillRect(X,Y,2,FPX);
+      } else if (room.floor==='smalltile'){
+        for (let yy=0;yy<2;yy++) for (let xx=0;xx<2;xx++){ c.fillStyle = shadeCol(f[0], rnd(.95,1.03)); c.fillRect(X+xx*16, Y+yy*16, 16, 16); }
+        c.fillStyle = 'rgba(80,100,110,.3)'; for (const o of [0,16]){ c.fillRect(X+o,Y,1,FPX); c.fillRect(X,Y+o,FPX,1); }
+      } else {
+        c.fillStyle = f[0]; c.fillRect(X,Y,FPX,FPX);
+        for (let k=0;k<70;k++){ c.fillStyle = shadeCol(f[0], rnd(.85,1.12)); c.fillRect(X+ri(0,30), Y+ri(0,30), 2, 2); }
+      }
+    }
+    // rugs
+    ROOMS.forEach((room, r) => {
+      if (!room.rug) return;
+      const a = pick(FABRIC), b = pick(FABRIC.filter(v => v!==a));
+      m.RC[r].rug = [a,b];
+      const rw = room.x1-room.x0+1, rh = room.y1-room.y0+1;
+      const cx = (room.x0+room.x1+1)/2*FPX, cy = (room.y0+room.y1+1)/2*FPX;
+      if (room.rug==='rect'){
+        const W = Math.min(6, rw-2)*FPX, Hh = Math.min(6, rh-2)*FPX, X = cx-W/2, Y = cy-Hh/2;
+        c.fillStyle = a; c.fillRect(X,Y,W,Hh);
+        c.fillStyle = b; c.fillRect(X+12,Y+12,W-24,Hh-24);
+        c.strokeStyle = a; c.lineWidth = 6;
+        c.beginPath(); c.moveTo(X+W/2,Y+18); c.lineTo(X+W-18,Y+Hh/2); c.lineTo(X+W/2,Y+Hh-18); c.lineTo(X+18,Y+Hh/2); c.closePath(); c.stroke();
+        c.fillStyle = 'rgba(255,255,255,.35)'; for (let k=0;k<W;k+=6){ c.fillRect(X+k,Y-4,2,4); c.fillRect(X+k,Y+Hh,2,4); }
+      } else {
+        const sc = Math.min(rw,rh)/8*FPX;
+        for (const [rad,col] of [[2.6,a],[1.8,b],[.9,a]]){ c.fillStyle = col; c.beginPath(); c.arc(cx,cy,rad*sc,0,Math.PI*2); c.fill(); }
+      }
+    });
+    // average colour of each cell = what a seeker actually sees there
+    const d = c.getImageData(0,0,cv.width,cv.height).data;
+    for (let y=0;y<N;y++) for (let x=0;x<N;x++){
+      let R=0,G=0,B=0;
+      for (let yy=0;yy<FPX;yy+=2) for (let xx=0;xx<FPX;xx+=2){ const o = ((y*FPX+yy)*cv.width + x*FPX+xx)*4; R+=d[o]; G+=d[o+1]; B+=d[o+2]; }
+      const n = (FPX/2)**2; m.floorRGB[idx(x,y)] = [R/n, G/n, B/n];
+    }
+    m.floorCanvas = cv;
+    // colours offered in the paint panel
+    const set = new Set();
+    m.RC.forEach(rc => { rc.fcol.slice(0,2).forEach(v => set.add(v)); set.add(rc.wall); (rc.rug||[]).forEach(v => set.add(v)); });
+    m.props.forEach(p => { if (p.t!=='wall') set.add(p.color); });
+    m.swatches = [...set];
+  }
+
+  /* ---------- furniture meshes (local: length along x, depth along z, back at -z) ---------- */
+  function furnitureMesh(p){
+    const g = new THREE.Group(), o = new THREE.Group(); g.add(o);
+    const B = (w,h,d,x,y,z,col,opt={}) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color:col, roughness:opt.r ?? .75, metalness:opt.m || 0, emissive:opt.e || 0x000000})); m.position.set(x,y,z); m.castShadow = opt.ns ? false : true; m.receiveShadow = true; o.add(m); return m; };
+    const Cy = (rt,rb,h,x,y,z,col,opt={}) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,18), new THREE.MeshStandardMaterial({color:col, roughness:opt.r ?? .7, emissive:opt.e || 0x000000})); m.position.set(x,y,z); m.castShadow = true; m.receiveShadow = true; o.add(m); return m; };
+    const L = p.L, D = p.D, c = p.color, bz = -D/2;
+    const legs = (w,d,h,col) => { for (const sx of [-1,1]) for (const sz of [-1,1]) B(.07,h,.07, sx*(w/2-.08), h/2, sz*(d/2-.08), col); };
+    switch (p.t){
+      case 'sofa': case 'armchair':
+        B(L-.1,.4,D-.15, 0,.22,.05, c);
+        B(L-.1,.55,.25, 0,.55,bz+.18, c);
+        for (const s of [-1,1]) B(.2,.58,D-.15, s*(L/2-.15),.33,.05, c);
+        for (let k=0;k<L;k++) B(.85,.1,.6, -L/2+.5+k,.47,.12, shadeCol(c,1.08));
+        break;
+      case 'tv':
+        B(L-.1,.5,D-.35, 0,.25,bz+.35, c);
+        B(L*.72,.62,.06, 0,.9,bz+.2, '#15171b', {r:.3});
+        B(L*.68,.54,.01, 0,.9,bz+.235, '#23324d', {r:.15, e:0x0b1220});
+        break;
+      case 'bookshelf': {
+        B(L-.05,1.8,.5, 0,.9,bz+.27, c);
+        for (let s=0;s<4;s++){
+          const yb = .12 + s*.43; let x = -L/2+.12;
+          while (x < L/2-.2){ const bw = rnd(.07,.16), bh = rnd(.24,.34); B(bw,bh,.06, x+bw/2, yb+bh/2, bz+.53, pick(BRIGHT.concat(FABRIC)), {ns:true}); x += bw+.015; }
+        }
+        break; }
+      case 'plant':
+        Cy(.22,.16,.42, 0,.21,0, '#a0522d');
+        for (const [r,x,y,z] of [[.36,0,.72,0],[.28,.15,.98,.08],[.26,-.14,.95,-.08]]){
+          const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r,1), new THREE.MeshStandardMaterial({color:c, flatShading:true, roughness:.9}));
+          m.position.set(x,y,z); m.castShadow = true; o.add(m);
+        }
+        break;
+      case 'lamp':
+        Cy(.2,.22,.05, 0,.03,0, '#3a3d44'); Cy(.03,.03,1.3, 0,.68,0, '#3a3d44');
+        Cy(.18,.3,.32, 0,1.44,0, c, {e:0x3a3018});
+        break;
+      case 'counter':
+        B(L-.02,.86,D-.12, 0,.43,-.04, c);
+        B(L,.06,D-.02, 0,.89,0, '#3a3d44', {r:.4});
+        for (let k=0;k<L;k++) B(.25,.03,.03, -L/2+.5+k,.75,D/2-.08, '#9aa3ab', {m:.6, ns:true});
+        B(.55,.02,.4, -L/2+.6,.93,0, '#9aa3ab', {m:.5, r:.3, ns:true});
+        if (L>=3) for (const [dx,dz] of [[-.15,-.12],[.15,-.12],[-.15,.12],[.15,.12]]) Cy(.08,.08,.02, L/2-.6+dx,.93,dz, '#15171b');
+        break;
+      case 'fridge':
+        B(.9,1.9,D-.12, 0,.95,0, c, {m:.25, r:.35});
+        B(.9,.02,.01, 0,1.25,D/2-.055, '#6b7078', {ns:true});
+        for (const y of [.8,1.55]) B(.04,.35,.05, .32,y,D/2-.03, '#9aa3ab', {m:.6, ns:true});
+        break;
+      case 'table': case 'desk':
+        B(L-.1,.07,D-(p.t==='desk'?.3:.1), 0,.75,p.t==='desk'?-.1:0, c);
+        legs(L-.1, D-(p.t==='desk'?.3:.1), .72, shadeCol(c,.8));
+        if (p.t==='desk'){ B(.6,.36,.04, 0,1.0,bz+.2, '#15171b'); B(.08,.18,.08, 0,.85,bz+.22, '#3a3d44'); }
+        else { B(.4,.02,.4, 0,.8,0, '#e9e4da', {ns:true}); Cy(.07,.05,.18, .3,.88,.2, '#e0533f'); }
+        break;
+      case 'bed':
+        B(L-.05,.32,D-.05, 0,.16,0, pick(WOOD));
+        B(L-.15,.2,D-.2, 0,.42,.02, '#f2efe8');
+        B(L-.1,.1,D*.62, 0,.55,D*.17, c);
+        B(L*.7,.13,.38, 0,.57,bz+.4, '#ffffff');
+        B(L-.05,.95,.1, 0,.47,bz+.05, pick(WOOD));
+        break;
+      case 'wardrobe':
+        B(L-.05,1.9,D-.12, 0,.95,0, c);
+        B(.02,1.8,.01, 0,.95,D/2-.055, '#2a2622', {ns:true});
+        for (const s of [-1,1]) B(.04,.3,.04, s*.1,1.0,D/2-.03, '#caa96a', {m:.5, ns:true});
+        break;
+      case 'nightstand':
+        B(.7,.55,.7, 0,.275,0, c);
+        B(.5,.02,.01, 0,.35,.355, '#2a2622', {ns:true});
+        Cy(.05,.07,.14, 0,.62,0, '#3a3d44'); Cy(.1,.16,.18, 0,.78,0, '#f0e2b6', {e:0x3a3018});
+        break;
+      case 'toybox':
+        B(.8,.5,.7, 0,.25,0, c);
+        B(.84,.06,.74, 0,.52,0, shadeCol(c,.8));
+        break;
+      case 'tub':
+        B(L-.05,.6,D-.1, 0,.3,0, c, {r:.3});
+        B(L-.3,.02,D-.35, 0,.56,0, '#9fd3e6', {r:.1, ns:true});
+        break;
+      case 'toilet':
+        Cy(.2,.17,.42, 0,.21,.08, c, {r:.3}); Cy(.23,.23,.05, 0,.44,.08, c, {r:.3});
+        B(.5,.5,.2, 0,.45,bz+.18, c, {r:.3});
+        break;
+      case 'sink':
+        B(.8,.8,.55, 0,.4,bz+.32, '#8a8f96');
+        B(.7,.1,.5, 0,.85,bz+.3, c, {r:.3});
+        B(.6,.5,.03, 0,1.35,bz+.03, '#bcd8e6', {r:.05, m:.3, ns:true});
+        break;
+      case 'washer':
+        B(.85,.9,.8, 0,.45,0, c, {r:.35});
+        { const d = Cy(.26,.26,.05, 0,.45,.41, '#3a4a5a', {r:.15}); d.rotation.x = Math.PI/2; }
+        break;
+      case 'shelf':
+        for (const sx of [-1,1]) for (const sz of [-1,1]) B(.05,1.6,.05, sx*(L/2-.08),.8,bz+.3+sz*.22, c);
+        for (let s=0;s<4;s++){
+          const y = .1 + s*.48; B(L-.1,.04,.5, 0,y,bz+.3, c);
+          for (let k=0;k<L;k++) if (Math.random()<.7) B(rnd(.3,.45),rnd(.2,.35),.35, -L/2+.5+k+rnd(-.1,.1), y+.2, bz+.3, pick(COLOR_OF.boxes), {ns:true});
+        }
+        break;
+      case 'boxes': {
+        const n = Math.round(p.height/.45);
+        for (let k=0;k<n;k++){
+          const s = rnd(.72,.86), b = B(s,.43,s, rnd(-.04,.04), .22+k*.45, rnd(-.04,.04), shadeCol(c, rnd(.9,1.08)));
+          b.rotation.y = rnd(-.15,.15);
+          B(s+.005,.43,.08, b.position.x, b.position.y, b.position.z, '#d8c7a0', {ns:true}).rotation.y = b.rotation.y;
+        }
+        break; }
+      case 'coffeetable':
+        B(L-.3,.06,D-.3, 0,.42,0, c);
+        legs(L-.3, D-.3, .4, shadeCol(c,.8));
+        B(.3,.03,.22, -.3,.47,.05, pick(BRIGHT), {ns:true});
+        break;
+      case 'chair':
+        B(.5,.06,.5, 0,.47,0, c);
+        legs(.5,.5,.44, shadeCol(c,.8));
+        B(.5,.5,.06, 0,.75,bz+.28, c);
+        break;
+      case 'piano':
+        B(L-.2,1.15,.45, 0,.575,bz+.3, c, {r:.3});
+        B(L-.3,.06,.26, 0,.72,bz+.63, c, {r:.3});
+        B(L-.36,.02,.2, 0,.76,bz+.65, '#f2f1ec', {ns:true});
+        for (let k=0;k<Math.round((L-.4)/.12);k++) if (k%7!==2 && k%7!==6) B(.05,.02,.11, -L/2+.26+k*.12,.775,bz+.61, '#15171b', {ns:true});
+        break;
+      case 'dresser':
+        B(L-.1,.9,D-.2, 0,.45,-.05, c);
+        for (let k=0;k<3;k++){
+          B(L-.2,.015,.01, 0,.22+k*.27,D/2-.145, '#2a2622', {ns:true});
+          for (const sx of [-1,1]) B(.12,.03,.04, sx*(L/4),.34+k*.27,D/2-.135, '#caa96a', {m:.5, ns:true});
+        }
+        Cy(.09,.07,.22, L/4,1.01,-.05, pick(BRIGHT));
+        break;
+      case 'shoerack':
+        for (const sx of [-1,1]) B(.05,1.0,.42, sx*(L/2-.08),.5,bz+.27, c);
+        for (let s=0;s<3;s++){
+          const y = .08 + s*.44; B(L-.1,.04,.42, 0,y,bz+.27, c);
+          for (let x=-L/2+.25; x<L/2-.2; x+=.3) if (Math.random()<.75) B(.2,.12,.3, x,y+.08,bz+.27, pick(BRIGHT.concat(FABRIC)), {ns:true});
+        }
+        break;
+      case 'teepee': {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(.98,1.6,6), new THREE.MeshStandardMaterial({color:c, flatShading:true, roughness:.9}));
+        cone.position.y = .8; cone.rotation.y = Math.PI/6; cone.castShadow = cone.receiveShadow = true; o.add(cone);
+        B(.5,.75,.04, 0,.38,.67, '#2a2622', {ns:true}).rotation.x = -.49;
+        for (const [dx,dz] of [[.08,0],[-.06,.06],[-.04,-.07]]) Cy(.015,.015,.4, dx,1.7,dz, '#6e4a33');
+        break; }
+    }
+    o.rotation.y = p.rot || 0;
+    g.position.set(p.x + p.w/2, 0, p.y + p.h/2);
+    return g;
+  }
+
+  /* wall cube (or the lintel over a doorway); registered in M.wallFx so it can turn see-through */
+  function wallMesh(p){
+    const base = p.base || 0;
+    const mat = new THREE.MeshStandardMaterial({color:p.color, roughness:.9});
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1, p.height, 1), mat);
+    m.position.set(p.x+.5, base + p.height/2, p.y+.5); m.castShadow = m.receiveShadow = true;
+    const lineMat = new THREE.LineBasicMaterial({color:0x000000, transparent:true, opacity:.22});
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), lineMat));
+    const mats = [{mat, base:1}, {mat:lineMat, base:.22}];
+    if (p.win){
+      const along = p.win==='x';
+      const frameM = new THREE.MeshStandardMaterial({color:0xf4f0e4, roughness:.6});
+      const glassM = new THREE.MeshStandardMaterial({color:0xa9d4ea, roughness:.1, emissive:0x1d3a4a});
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(along ? .84 : 1.02, 1.04, along ? 1.02 : .84), frameM);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(along ? .7 : 1.04, .9, along ? 1.04 : .7), glassM);
+      frame.position.y = glass.position.y = 1.5 - p.height/2;
+      m.add(frame, glass);
+      mats.push({mat:frameM, base:1}, {mat:glassM, base:1});
+    }
+    M.wallFx.set(idx(p.x,p.y), {mats, op:1});
+    return m;
+  }
+
+  function buildMap(){
+    clearGroup(mapGroup);
+    M.wallFx = new Map(); fading.clear();
+    const tex = new THREE.CanvasTexture(M.floorCanvas);
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(N,N), new THREE.MeshStandardMaterial({map:tex, roughness:.9}));
+    floor.rotation.x = -Math.PI/2; floor.position.set(C,0,C); floor.receiveShadow = true;
+    mapGroup.add(floor);
+    // ceiling: faces down only, so it shows from inside a room and disappears when the camera is above the house
+    const cc = document.createElement('canvas'); cc.width = cc.height = N*8;
+    const cg = cc.getContext('2d'); cg.fillStyle = '#b9b3a6'; cg.fillRect(0,0,cc.width,cc.height);
+    for (let y=0;y<N;y++) for (let x=0;x<N;x++){
+      const r = M.roomOf[idx(x,y)]; if (r<0) continue;
+      cg.fillStyle = M.RC[r].ceil; cg.fillRect(x*8, y*8, 8, 8);
+    }
+    const ctex = new THREE.CanvasTexture(cc); ctex.flipY = false; ctex.magFilter = THREE.NearestFilter;
+    const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(N,N), new THREE.MeshBasicMaterial({map:ctex}));
+    ceiling.rotation.x = Math.PI/2; ceiling.position.set(C,WALL_H,C);
+    mapGroup.add(ceiling);
+    // ceiling lights
+    ROOMS.forEach(room => {
+      const rw = room.x1-room.x0+1, rh = room.y1-room.y0+1, nx = rw>=10 ? 2 : 1, ny = rh>=10 ? 2 : 1;
+      for (let j=0;j<ny;j++) for (let i=0;i<nx;i++){
+        const lx = room.x0 + rw*(i+.5)/nx, lz = room.y0 + rh*(j+.5)/ny;
+        const rim = new THREE.Mesh(new THREE.CircleGeometry(.5,24), new THREE.MeshBasicMaterial({color:0x8a8478}));
+        const bulb = new THREE.Mesh(new THREE.CircleGeometry(.4,24), new THREE.MeshBasicMaterial({color:0xfff3c8, fog:false}));
+        rim.rotation.x = bulb.rotation.x = Math.PI/2;
+        rim.position.set(lx, WALL_H-.01, lz); bulb.position.set(lx, WALL_H-.02, lz);
+        mapGroup.add(rim, bulb);
+      }
+    });
+    // lintels over the doorways
+    for (const [x,y] of DOORS) mapGroup.add(wallMesh({x, y, color:M.RC[M.roomOf[idx(x,y)]].wall, height:.5, base:WALL_H-.5}));
+    // garden outside the house
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(140,140), new THREE.MeshStandardMaterial({color:0x3b5a36, roughness:1}));
+    ground.rotation.x = -Math.PI/2; ground.position.set(C,-.02,C); ground.receiveShadow = true;
+    mapGroup.add(ground);
+    const trees = [];
+    for (let k=1; k<N; k+=6) trees.push([k+rnd(-1,1),-3.5+rnd(-1,1)], [k+3+rnd(-1,1),N+3.5+rnd(-1,1)], [-3.5+rnd(-1,1),k+2+rnd(-1,1)], [N+3.5+rnd(-1,1),k+rnd(-1,1)]);
+    for (const [x,z] of trees){
+      const t = new THREE.Group(); t.position.set(x,0,z);
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.18,.25,1.4,10), new THREE.MeshStandardMaterial({color:0x6e4a33}));
+      trunk.position.y = .7; t.add(trunk);
+      const top = new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(1.1,1.5),1), new THREE.MeshStandardMaterial({color:pick([0x4f7a3a,0x5f8f45,0x3f6a3a]), flatShading:true}));
+      top.position.y = 2.1; t.add(top);
+      t.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      mapGroup.add(t);
+    }
+    for (const p of M.props) mapGroup.add(p.t==='wall' ? wallMesh(p) : furnitureMesh(p));
+    // paint panel swatches = this house's colours
+    $('palRow').innerHTML = M.swatches.map(h => `<button class="swb" style="background:${h}" data-col="${h}"></button>`).join('');
+  }
+
+  /* ---------- faceless person (player = paintable white, friends = their own colour, seeker = blue with a gun); faces +x ---------- */
+  function makeHuman(hex, seeker, map){
+    // g (position/heading) → pose (stand / T-pose / lying) → body (walk bob, knocked-over tilt)
+    const g = new THREE.Group(), pose = new THREE.Group(), body = new THREE.Group(); g.add(pose); pose.add(body);
+    const mat = map ? new THREE.MeshStandardMaterial({map, roughness:.6}) : new THREE.MeshStandardMaterial({color:hex, roughness:.55});
+    const add = (geo,x,y,z,parent=body,m=mat) => { const o = new THREE.Mesh(geo,m); o.position.set(x,y,z); o.castShadow = true; parent.add(o); return o; };
+    // every body part owns its own patch of the paint canvas (u0,v0,u1,v1), so a stroke on the head stays on the head
+    const parts = [];
+    const patch = (mesh,u0,v0,u1,v1) => {
+      const uv = mesh.geometry.attributes.uv;
+      for (let i=0;i<uv.count;i++) uv.setXY(i, u0 + uv.getX(i)*(u1-u0), v0 + uv.getY(i)*(v1-v0));
+      mesh.userData.rect = [u0*256, (1-v1)*128, (u1-u0)*256, (v1-v0)*128];
+      parts.push(mesh); return mesh;
+    };
+    // chibi proportions: big round head, bean body, stubby limbs; no eyes, no mouth
+    patch(add(new THREE.SphereGeometry(.27,32,22), 0,.71,0), 0,0,.5,1).scale.y = .93;
+    patch(add(new THREE.SphereGeometry(.19,24,16), 0,.33,0), .5,0,.75,1).scale.set(.9,1.12,1);
+    // limbs hang from a pivot so they can swing
+    const limb = (r,len,y,z,tilt,v0) => {
+      const p = new THREE.Group(); p.position.set(0,y,z); p.rotation.x = tilt; p.userData.tilt = tilt; body.add(p);
+      patch(add(new THREE.SphereGeometry(r,14,10), 0,-len/2+r*.4,0, p), .75,v0,1,v0+.25).scale.y = len/(2*r);
+      return p;
+    };
+    const limbs = [limb(.08,.24,.2,-.09,0,.25), limb(.08,.24,.2,.09,0,0), limb(.06,.22,.46,.19,-.3,.5), limb(.06,.22,.46,-.19,.3,.75)];   // legL, legR, armR, armL
+    const arms = [limbs[2], limbs[3]];
+    let flash = null;
+    if (seeker){
+      limbs[2].rotation.set(0,0,Math.PI/2); limbs[2] = null;            // right arm points the gun forward
+      const gunM = new THREE.MeshStandardMaterial({color:0x22252b, roughness:.4, metalness:.6});
+      add(new THREE.BoxGeometry(.26,.08,.07), .3,.47,.19, body, gunM);
+      add(new THREE.BoxGeometry(.07,.12,.06), .22,.4,.19, body, gunM);
+      flash = add(new THREE.SphereGeometry(.1,10,8), .46,.47,.19, body, new THREE.MeshBasicMaterial({color:0xffd66b}));
+      flash.visible = false; flash.castShadow = false;
+    }
+    g.scale.setScalar(HUMAN_SCALE * (seeker ? 1.25 : 1));
+    return {g, pose, body, mat, flash, limbs, arms, parts, poseName:'stand'};
+  }
+  function swingLimbs(m, t, on){
+    if (!m.limbs) return;
+    const s = on && m.poseName!=='lie' ? Math.sin(t)*.55 : 0;
+    m.limbs.forEach((l,i) => { if (l && !(i>=2 && m.poseName==='T')) l.rotation.z = i%2 ? -s : s; });   // T-pose keeps its arms out
+  }
+  /* stand = arms down (default) · T = arms straight out · lie = flat on the back, face up */
+  const POSES = ['stand','T','lie'], POSE_NAME = {stand:'기본 포즈', T:'T포즈', lie:'누워있는 포즈'};
+  function applyPose(m, name){
+    m.poseName = name;
+    m.pose.rotation.set(0,0,0); m.pose.position.set(0,0,0);
+    const [armR, armL] = m.arms;
+    for (const a of m.arms) if (a){ a.rotation.x = a.userData.tilt; a.rotation.z = 0; }
+    if (name==='T'){ if (armR) armR.rotation.x = -Math.PI/2; if (armL) armL.rotation.x = Math.PI/2; }
+    else if (name==='lie'){ m.pose.rotation.z = Math.PI/2; m.pose.position.set(.42, .25, 0); }   // tip over backwards so the front faces the ceiling, centred on the spot
+  }
+
+  function makeLabel(){
+    const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+    const tex = new THREE.CanvasTexture(c);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true}));
+    spr.scale.set(2.6,.49,1); spr.renderOrder = 10;
+    return {spr, c, tex, last:''};
+  }
+  function setLabel(L, text, color){
+    if (L.last === text+color) return; L.last = text+color;
+    const g = L.c.getContext('2d'); g.clearRect(0,0,512,96);
+    g.font = '700 44px "Black Han Sans","Malgun Gothic",sans-serif';
+    const w = Math.min(500, g.measureText(text).width + 44);
+    g.fillStyle = 'rgba(21,23,27,.86)'; g.fillRect(256-w/2, 12, w, 72);
+    g.fillStyle = color; g.fillRect(256-w/2, 12, 8, 72);
+    g.fillStyle = '#ebe7dc'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 260, 50);
+    L.tex.needsUpdate = true;
+  }
+
+  /* vision fan (occluded by walls) */
+  const SEG = 32;
+  const fanIdx = []; for (let k=0;k<SEG;k++) fanIdx.push(0,k+1,k+2);
+  function makeFan(){   // one per seeker, lives in agentGroup so clearGroup disposes it
+    const geo = new THREE.BufferGeometry(), pos = new Float32Array((SEG+2)*3);
+    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    geo.setIndex(fanIdx);
+    const mat = new THREE.MeshBasicMaterial({color:0xebe7dc, transparent:true, opacity:.16, depthWrite:false, side:THREE.DoubleSide});
+    const mesh = new THREE.Mesh(geo, mat); mesh.renderOrder = 2; mesh.frustumCulled = false; mesh.userData.fan = true;
+    return {geo, pos, mat, mesh};
+  }
+
+  /* bullets & sparks */
+  const bulletGeo = new THREE.BoxGeometry(.06,.06,.6), bulletMat = new THREE.MeshBasicMaterial({color:0xffd66b});
+  const sparkGeo = new THREE.SphereGeometry(.12,8,6), sparkMat = new THREE.MeshBasicMaterial({color:0xffc94d, transparent:true});
+  let bullets = [], sparks = [];
+
+  /* ---------- sound ---------- */
+  let AC = null;
+  function sfx(type, vol=1){
+    try {
+      AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+      const t = AC.currentTime, g = AC.createGain(); g.connect(AC.destination);
+      if (type==='shot'){
+        const len = .12, buf = AC.createBuffer(1, AC.sampleRate*len, AC.sampleRate), d = buf.getChannelData(0);
+        for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/d.length, 3);
+        const src = AC.createBufferSource(); src.buffer = buf;
+        const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200;
+        src.connect(f); f.connect(g); g.gain.value = .45*vol; src.start(t);
+      } else if (type==='honk'){   // two-tone horn, "빵빵"
+        g.gain.setValueAtTime(0, t);
+        for (const [s, e] of [[0, .16], [.22, .42]]){
+          g.gain.setValueAtTime(0, t+s); g.gain.linearRampToValueAtTime(.16*vol, t+s+.02);
+          g.gain.setValueAtTime(.16*vol, t+e-.03); g.gain.linearRampToValueAtTime(0, t+e);
+        }
+        const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1800; f.connect(g);
+        for (const hz of [370, 466]){ const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz; o.connect(f); o.start(t); o.stop(t+.45); }
+      } else {
+        const o = AC.createOscillator(); o.type = type==='hit' ? 'square' : 'sine';
+        o.frequency.setValueAtTime(type==='hit' ? 180 : 420, t);
+        o.frequency.exponentialRampToValueAtTime(type==='hit' ? 60 : 180, t+.18);
+        g.gain.setValueAtTime(.18*vol, t); g.gain.exponentialRampToValueAtTime(.001, t+.2);
+        o.connect(g); o.start(t); o.stop(t+.22);
+      }
+    } catch(e) {}
+  }
+
+  /* ---------- helpers ---------- */
+  function hAt(x,z){ const cx=Math.floor(x), cz=Math.floor(z); if (!inB(cx,cz)) return 9; return M.H[idx(cx,cz)]; }
+  function los3(x0,y0,z0,x1,y1,z1){
+    const d = Math.hypot(x1-x0,z1-z0), n = Math.ceil(d/.15);
+    for (let i=1;i<n;i++){ const t=i/n; if (hAt(x0+(x1-x0)*t, z0+(z1-z0)*t) > y0+(y1-y0)*t) return false; }
+    return true;
+  }
+  function turnTo(a, target, amt){ const df = angDiff(target, a.a); a.a += Math.max(-amt, Math.min(amt, df)); }
+
+  function findPath(sx,sz,tx,tz){
+    const s = cellI(sx,sz), t = nearestFree(tx,tz);
+    if (t<0 || M.blocked[s]) return [];
+    const prev = new Int16Array(N*N).fill(-1); prev[s] = s; const q = [s];
+    for (let i=0;i<q.length;i++){
+      const c=q[i]; if (c===t) break;
+      const x=c%N, y=(c/N)|0;
+      for (const [dx,dy] of DIRS){ const nx=x+dx, ny=y+dy; if (!inB(nx,ny)) continue; const n=idx(nx,ny); if (M.blocked[n]||prev[n]>=0) continue; prev[n]=c; q.push(n); }
+    }
+    if (prev[t]<0) return [];
+    const out = []; for (let c=t; c!==s; c=prev[c]) out.push({x:c%N+.5, z:((c/N)|0)+.5});
+    return out.reverse();
+  }
+  function nearestFree(x,z){
+    const cx = Math.max(0,Math.min(N-1,Math.floor(x))), cz = Math.max(0,Math.min(N-1,Math.floor(z)));
+    if (!M.blocked[idx(cx,cz)]) return idx(cx,cz);
+    let best=-1, bd=1e9;
+    for (let dy=-2;dy<=2;dy++) for (let dx=-2;dx<=2;dx++){
+      const nx=cx+dx, ny=cz+dy; if (!inB(nx,ny) || M.blocked[idx(nx,ny)]) continue;
+      const d = Math.hypot(nx+.5-x, ny+.5-z); if (d<bd){ bd=d; best=idx(nx,ny); }
+    }
+    return best;
+  }
+  function follow(a, dt, speed){
+    if (!a.path.length) return true;
+    const t=a.path[0], dx=t.x-a.x, dz=t.z-a.z, d=Math.hypot(dx,dz), st=speed*dt;
+    if (d<=st){ a.x=t.x; a.z=t.z; a.path.shift(); }
+    else { a.x += dx/d*st; a.z += dz/d*st; }
+    if (d>.01) turnTo(a, Math.atan2(dz,dx), dt*7);
+    return !a.path.length;
+  }
+
+  /* what the agent stands on, and walls/props it is pressed against */
+  function surfaceRGB(a){
+    if (a.y>.05){
+      for (const [ox,oz] of [[0,0],[-.3,-.3],[.3,-.3],[-.3,.3],[.3,.3]]){
+        const i = cellI(a.x+ox, a.z+oz);
+        if (M.H[i]>0 && Math.abs(M.H[i]-a.y)<.12) return M.srgb[i];
+      }
+    }
+    return M.floorRGB[cellI(a.x,a.z)];
+  }
+  function adjSolids(a){
+    const cx=Math.floor(a.x), cz=Math.floor(a.z), out=[];
+    for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++){
+      const nx=cx+dx, ny=cz+dy; if (!inB(nx,ny)) continue;
+      const i = idx(nx,ny); if (M.H[i] <= a.y+.2) continue;
+      const qx = Math.max(nx, Math.min(nx+1, a.x)), qz = Math.max(ny, Math.min(ny+1, a.z));
+      const d = Math.hypot(a.x-qx, a.z-qz);
+      if (d<.75) out.push({d, rgb:M.srgb[i]});
+    }
+    return out.sort((p,q)=>p.d-q.d);
+  }
+  function camoInfo(a){
+    let best = surfaceRGB(a), D = cdist(a.rgb, best);
+    for (const s of adjSolids(a)){ const d = cdist(a.rgb, s.rgb); if (d<D){ D=d; best=s.rgb; } }
+    return {D, best};
+  }
+  /* how visible a hider is = ONLY how well their painted colour matches the map behind them.
+     Moving, jumping, height and pose don't matter — just the match % (same number the HUD shows). */
+  const matchPct = D => Math.round(Math.max(0, 100 - D*100/140));
+  const HIDE_PCT = 88, MID_PCT = 70;     // ≥88% invisible · 70–88% seen only up close · <70% easy to spot
+  const FIND_CHANCE = .5;                // chance a seeker notices you each time you come into its view
+  function visOf(a, ch){
+    const pct = matchPct(a.camo.D);
+    if (pct >= HIDE_PCT) return 0;
+    return Math.min(1.2, (HIDE_PCT - pct)/60 * ch.sharp);   // sharp-eyed seekers notice smaller colour differences
+  }
+  const chestY = a => a.pose==='lie' ? .14 : BODY_Y;
+
+  /* ---------- game state ---------- */
+  const R = {idx:0, wins:0, played:0, streak:0, best:0};
+  try { R.best = +localStorage.getItem('chs-best') || 0; } catch(e) {}
+  let G = null, state = 'title', painting = false;
+  const cam = {yaw:0, pitch:.55, dist:6.5, tx:C, ty:.6, tz:C+2};
+  const K = {fwd:0, back:0, left:0, right:0, sneak:0, rotL:0, rotR:0};
+  const joy = {x:0, y:0, m:0};   // on-screen joystick (x right, y forward, m = how far it's pushed 0..1)
+  let sneakToggle = false, jumpQueued = false;
+  let frozen = false;   // R key: your own character stays put while the game keeps running
+  function setFrozen(on){ frozen = on; $('freezeBtn').classList.toggle('on', frozen); }
+  function setPose(name){
+    if (!G || G.P.caught || G.P.pose===name) return;
+    G.P.pose = name;
+    $('poseBtn').textContent = name==='stand' ? '포즈' : name==='T' ? 'T포즈' : '누움';
+    $('poseBtn').classList.toggle('on', name!=='stand');
+    toast(POSE_NAME[name] + (name==='lie' ? ' · 기어서만 움직여요 (점프 불가)' : ''));
+  }
+  function cyclePose(){ if (G) setPose(POSES[(POSES.indexOf(G.P.pose)+1) % POSES.length]); }
+  let playerRGB = hexRgb(PLAYER.color);
+
+  function makeAgent(def, x, z, isPlayer){
+    const mesh = makeHuman(def.color, false, isPlayer ? paintTex : null);
+    agentGroup.add(mesh.g);
+    return {name:def.name, color:new THREE.Color(def.color), isPlayer, x, z, y:0, vy:0, a:-Math.PI/2,
+            rgb: isPlayer ? playerRGB : hexRgb(def.color), camo:{D:999, best:[0,0,0]},
+            moving:false, sneak:false, airborne:false, noise:false, caught:false, how:null,
+            hp: isPlayer ? PLAYER_HP : NPC_HP, hurt:0, vx:0, vz:0, px:x, pz:z,
+            mesh, cur:new THREE.Color(def.color), path:[], state:'goHide', walkT:0, pose:'stand'};
+  }
+
+  function pickHideCell(taken, fromX, fromZ, minD){
+    const opts = M.free.filter(i => M.propAdj[i] && !taken.has(i) && Math.hypot(i%N+.5-fromX, ((i/N)|0)+.5-fromZ) >= minD);
+    const pool = opts.length ? opts : M.free;
+    return pool[ri(0,pool.length-1)];
+  }
+
+  function clearFx(){
+    for (const b of bullets) fxGroup.remove(b.mesh);
+    for (const s of sparks) fxGroup.remove(s.mesh);
+    bullets = []; sparks = [];
+  }
+
+  function startRound(){
+    let m = null; while (!m) m = generateMap();
+    M = m; buildMap();
+    clearGroup(agentGroup); clearFx();
+
+    const lvl = Math.floor(R.idx / CHARS.length);   // each full rotation the seekers get sharper
+    const seekChars = [];
+    for (let k=0;k<Math.min(SEEKER_COUNT, CHARS.length);k++) seekChars.push(CHARS[(R.idx+k) % CHARS.length]);
+    const ch = seekChars[0];
+    // IQ boost: wider/further sight, sharper ears & nose, better eye for camouflage, steadier aim
+    const smart = c => ({...c, speed: c.speed*(1+lvl*.06)*1.08, range: c.range*(1+lvl*.05)*1.15, fov: c.fov*1.15,
+                         hear: c.hear*IQ, sniff: c.sniff*1.3, sharp: c.sharp*1.25, propW: c.propW*1.3,
+                         spread: c.spread/IQ, fireRate: c.fireRate*(1-Math.min(.3,lvl*.08))});
+
+    const P = makeAgent(PLAYER, C+.5, C+1.5, true);
+    const hiderDefs = CHARS.filter(c => !seekChars.includes(c)).concat(EXTRA_HIDERS);
+    const npcs = hiderDefs.map((c,i) => makeAgent(c, C-1.9+i*1.2, C+2.6, false));
+    const taken = new Set();
+    for (const a of npcs){
+      const cell = pickHideCell(taken, C, C, 8); taken.add(cell);
+      a.path = findPath(a.x, a.z, cell%N+.5, ((cell/N)|0)+.5); a.state = 'goHide';
+      a.speedMul = rnd(.85,1.1);
+    }
+
+    const seekers = seekChars.map((c,k) => {
+      const sm = makeHuman(SEEKER_BLUE, true, null);
+      const label = makeLabel(); label.spr.position.set(0,1.4,0); sm.g.add(label.spr);
+      agentGroup.add(sm.g);
+      const fan = makeFan(); agentGroup.add(fan.mesh);
+      return {ch:smart(c), x:C+.5+(k-(seekChars.length-1)/2)*1.8, z:C-.5, a:-Math.PI/2, state:'count', path:[], sus:new Map(), seen:new Set(), last:null,
+              lookT:0, base:0, phase:0, repath:0, target:null, lostT:0, hearCd:0, scanT:k*.08, fireCd:1, flashT:0,
+              mesh:sm, label, fan, seeingP:false, walkT:0, goal:-1};
+    });
+
+    G = {P, npcs, agents:[P, ...npcs], seekers, S:seekers[0], phase:'hide', hideLeft:HIDE_TIME, seekLeft:SEEK_TIME, clock:0,
+         visited:new Float32Array(N*N).fill(-90), found:0};
+
+    cam.yaw = 0; cam.tx = P.x; cam.ty = .6; cam.tz = P.z;
+    sneakToggle = false; $('sneakBtn').classList.remove('on');
+    setFrozen(false);
+    $('poseBtn').textContent = '포즈'; $('poseBtn').classList.remove('on');
+    $('hurt').style.opacity = 0;
+    buildHiderChips();
+    state = 'play'; $('ov').hidden = true;
+    toast(`${seekChars.map(c=>c.name).join('·')} 술래 ${seekers.length}명! ${HIDE_TIME}초 안에 숨고 몸에 색을 직접 칠하세요 (C)`);
+  }
+
+  /* ---------- update ---------- */
+  function playerSolid(x,z,y){
+    const r = .3;
+    for (const [ox,oz] of [[-r,-r],[r,-r],[-r,r],[r,r]]) if (hAt(x+ox,z+oz) > y+.06) return true;
+    return false;
+  }
+  function groundAt(x,z,y){
+    let g = 0; const r = .3;
+    for (const [ox,oz] of [[-r,-r],[r,-r],[-r,r],[r,r]]){ const h = hAt(x+ox,z+oz); if (h<=y+.06 && h>g) g = h; }
+    return g;
+  }
+
+  function updatePlayer(dt){
+    const P = G.P; P.noise = false;
+    if (P.caught) return;
+    if (frozen) jumpQueued = false;                       // R: held in place — no walking, no jumping, no falling
+    const f = frozen ? 0 : K.fwd - K.back + joy.y, s = frozen ? 0 : K.right - K.left + joy.x;
+    let dx = -Math.sin(cam.yaw)*f + Math.cos(cam.yaw)*s;
+    let dz = -Math.cos(cam.yaw)*f - Math.sin(cam.yaw)*s;
+    const len = Math.hypot(dx,dz);
+    P.moving = len > .01; P.sneak = !!(K.sneak || sneakToggle || P.pose==='lie' || (joy.m>0 && joy.m<.6));   // lying = quiet crawl, joystick pushed a little = sneak
+    if (P.moving){
+      dx/=len; dz/=len;
+      const sp = (P.pose==='lie' ? 1.1 : P.sneak ? 1.5 : 3.2) * dt;
+      const nx = P.x + dx*sp; if (!playerSolid(nx,P.z,P.y)) P.x = nx;
+      const nz = P.z + dz*sp; if (!playerSolid(P.x,nz,P.y)) P.z = nz;
+      turnTo(P, Math.atan2(dz,dx), dt*12);
+    }
+    // R while airborne: hang in mid-air exactly where you are (no gravity until you let go)
+    if (frozen){ P.vy = 0; P.airborne = false; return; }
+    // jump & gravity
+    const g0 = groundAt(P.x,P.z,P.y);
+    const onGround = P.y <= g0 + .001 && P.vy <= 0;
+    if (jumpQueued && onGround && P.pose!=='lie'){ P.vy = JUMP_V; }
+    jumpQueued = false;
+    P.vy -= GRAV*dt; P.y += P.vy*dt;
+    const g = groundAt(P.x,P.z,P.y);
+    if (P.y <= g){
+      if (P.vy < -5 && !P.sneak) P.noise = true;   // loud landing
+      P.y = g; P.vy = 0; P.airborne = false;
+    } else P.airborne = P.y > g + .15;
+  }
+
+  function updateNPC(a, dt){
+    if (a.caught) return;
+    a.moving = false;
+    if (a.state==='goHide' || a.state==='flee'){
+      if (!a.path.length){
+        a.state = 'hidden';
+        // AI friends paint themselves close to the floor (not perfect)
+        a.rgb = surfaceRGB(a).map(v => v + rnd(-14,14)/IQ);
+      } else {
+        follow(a, dt, (a.state==='flee' ? 3.3 : 3.0) * a.speedMul);
+        a.moving = true;
+      }
+    } else if (a.state==='hidden'){
+      const S = G.seekers.find(s => s.state==='chase' && s.target===a);
+      if (S){
+        const taken = new Set(G.npcs.filter(n=>n!==a && !n.caught).map(n=>cellI(n.x,n.z)));
+        const cell = pickHideCell(taken, S.x, S.z, 7);
+        a.path = findPath(a.x, a.z, cell%N+.5, ((cell/N)|0)+.5);
+        a.state = 'flee';
+      }
+    }
+  }
+
+  function tickAgent(a, dt){
+    if (dt>0){ a.vx = (a.x-a.px)/dt; a.vz = (a.z-a.pz)/dt; }
+    a.px = a.x; a.pz = a.z;
+    a.hurt = Math.max(0, a.hurt - dt);
+    if (a.isPlayer) a.rgb = playerRGB;
+    a.camo = camoInfo(a);
+    const m = a.mesh;
+    if (a.isPlayer){
+      m.mat.color.copy(a.caught ? GREY : WHITE);
+    } else {
+      const tgt = a.caught ? GREY : new THREE.Color(a.rgb[0]/255, a.rgb[1]/255, a.rgb[2]/255);
+      a.cur.lerp(tgt, Math.min(1, dt*6)); m.mat.color.copy(a.cur);
+    }
+    m.mat.emissive.setRGB(a.hurt*2.2, a.hurt*.2, a.hurt*.2);
+    m.g.position.set(a.x, a.y, a.z);
+    m.g.rotation.y = -a.a;
+    if (m.poseName !== (a.caught ? 'stand' : a.pose)) applyPose(m, a.caught ? 'stand' : a.pose);
+    if (a.moving) a.walkT += dt*(a.sneak ? 7 : 13);
+    m.body.position.y = a.moving && !a.airborne ? Math.abs(Math.sin(a.walkT))*.05 : 0;
+    m.body.rotation.x = a.caught ? 1.45 : (a.moving ? Math.sin(a.walkT)*.06 : 0);
+    swingLimbs(m, a.walkT, a.moving && !a.airborne && !a.caught);
+  }
+
+  function markSeen(S){
+    const r = Math.min(S.ch.range*.6, 5.5), cx = Math.floor(S.x), cz = Math.floor(S.z), rr = Math.ceil(r);
+    for (let dy=-rr;dy<=rr;dy++) for (let dx=-rr;dx<=rr;dx++){
+      const nx=cx+dx, ny=cz+dy; if (!inB(nx,ny)) continue;
+      const i = idx(nx,ny); if (M.blocked[i]) continue;
+      const tx=nx+.5-S.x, tz=ny+.5-S.z, d=Math.hypot(tx,tz);
+      if (d>r) continue;
+      if (d>1 && Math.abs(angDiff(Math.atan2(tz,tx), S.a))>S.ch.fov) continue;
+      if (!los3(S.x,EYE,S.z,nx+.5,.3,ny+.5)) continue;
+      G.visited[i] = G.clock;
+    }
+  }
+
+  function pickSearchCell(S){
+    let best=-1, bs=-1e9;
+    for (const i of M.free){
+      const x=i%N+.5, z=((i/N)|0)+.5, d=Math.hypot(x-S.x, z-S.z);
+      if (d<3) continue;
+      const age = Math.min(90, G.clock - G.visited[i]);
+      let s = age*(M.propAdj[i] ? S.ch.propW : 1) - d*1.2 + rnd(0,25/IQ);
+      // teamwork: don't search where another seeker is or is already heading
+      for (const o of G.seekers){
+        if (o===S) continue;
+        const od = Math.min(Math.hypot(x-o.x, z-o.z), o.goal>=0 ? Math.hypot(x-(o.goal%N+.5), z-(((o.goal/N)|0)+.5)) : 99);
+        if (od<7) s -= (7-od)*8;
+      }
+      if (s>bs){ bs=s; best=i; }
+    }
+    return best<0 ? M.free[ri(0,M.free.length-1)] : best;
+  }
+  function newSearch(S){
+    const i = pickSearchCell(S); S.goal = i;
+    S.path = findPath(S.x, S.z, i%N+.5, ((i/N)|0)+.5); S.state = 'search';
+  }
+  function startLook(S, dur){ S.state='look'; S.lookT=dur; S.base=S.a; S.phase=0; S.path=[]; }
+
+  /* every HONK_EVERY seconds each hider still in the game honks; seekers that aren't chasing head for the nearest honk */
+  function honk(){
+    const live = G.agents.filter(a => !a.caught);
+    if (!live.length) return;
+    const ears = G.dead ? G.specT || G.P : G.P;
+    const loudest = Math.max(...live.map(a => 1 - Math.hypot(a.x-ears.x, a.z-ears.z)/25));
+    sfx('honk', Math.max(.2, loudest));
+    for (const S of G.seekers){
+      if (S.state==='chase') continue;
+      let near = null, nd = Infinity;
+      for (const a of live){ const d = Math.hypot(a.x-S.x, a.z-S.z); if (d<nd){ nd = d; near = a; } }
+      S.last = {x:near.x+rnd(-1.5,1.5)/IQ, z:near.z+rnd(-1.5,1.5)/IQ};
+      S.state = 'investigate'; S.repath = 0;
+    }
+    if (!G.P.caught) toast('빵빵! 경적이 울려 위치가 알려졌어요');
+  }
+
+  /* a seeker that spots someone radios the others, who come to help */
+  function radio(from, a){
+    for (const o of G.seekers){
+      if (o===from || o.state==='chase' || o.state==='count') continue;
+      if (Math.hypot(o.x-a.x, o.z-a.z) > 14) continue;
+      o.state = 'investigate'; o.last = {x:a.x, z:a.z}; o.repath = 0;
+    }
+  }
+
+  function updateSeeker(S, dt){
+    const ch = S.ch;
+    S.flashT -= dt;
+    if (G.phase==='hide'){ S.a = -Math.PI/2; return; }
+    S.hearCd -= dt; S.scanT -= dt; S.fireCd -= dt;
+    if (S.scanT<=0){ markSeen(S); S.scanT = .25; }
+    S.seeingP = false; S.seen.clear();
+
+    let bestAg = null, bestSus = 0;
+    for (const a of G.agents){
+      if (a.caught) continue;
+      const dx=a.x-S.x, dz=a.z-S.z, d=Math.hypot(dx,dz);
+      const clear = los3(S.x,EYE,S.z,a.x,a.y+chestY(a),a.z);
+      let rate = 0, seen = false;
+      if (d<=ch.range && clear && (d<1 || Math.abs(angDiff(Math.atan2(dz,dx), S.a))<=ch.fov)){
+        rate = visOf(a, ch) * Math.max(0, 1.3 - d/ch.range) * 2;
+      }
+      if (a.isPlayer){   // each time you come into view, the seeker only notices you FIND_CHANCE of the time
+        if (rate>0){ if (S.pRoll===undefined) S.pRoll = Math.random() < FIND_CHANCE; S.pGone = 0; if (!S.pRoll) rate = 0; }
+        else if ((S.pGone = (S.pGone||0) + dt) > 3) S.pRoll = undefined;
+      }
+      if (rate>0){
+        seen = rate > .3;
+        if (seen) S.seen.add(a);
+      }
+      const loud = (a.moving && !a.sneak) || a.noise;
+      if (loud && d<ch.hear && !seen && S.hearCd<=0 && (S.state==='search'||S.state==='look')){
+        S.last = {x:a.x+rnd(-1.2,1.2)/IQ, z:a.z+rnd(-1.2,1.2)/IQ};
+        S.state = 'investigate'; S.repath = 0; S.hearCd = 2;
+        if (a.isPlayer) toast(`${ch.name}: "무슨 소리지?"`);
+      }
+      let sv = S.sus.get(a) || 0;
+      sv += rate*dt*IQ - (rate<.15 ? .15*dt/IQ : 0);   // gets suspicious faster, forgets slower
+      sv = Math.max(0, Math.min(1, sv)); S.sus.set(a, sv);
+      if (a.isPlayer) S.seeingP = rate > .05;
+      if (seen && (rate>.5 || sv>.3) && sv>=bestSus){ bestSus = sv; bestAg = a; }
+      if (d<.7 && a.y<.6 && S.state==='chase' && S.target===a){ catchAgent(a, 'tag', S); return; }   // can only tag someone it has actually spotted
+    }
+
+    if (bestAg && bestSus>.4){
+      if (S.state!=='chase' || S.target!==bestAg){ S.state='chase'; S.target=bestAg; S.repath=0; radio(S, bestAg); }
+      S.lostT = 0; S.last = {x:bestAg.x, z:bestAg.z};
+    } else if (bestAg && (S.state==='search' || S.state==='look')){
+      S.state = 'investigate'; S.last = {x:bestAg.x, z:bestAg.z}; S.repath = 0;
+    } else if (S.state==='chase'){
+      S.lostT += dt;
+      if (S.lostT>IQ || S.target.caught){
+        // predict where they ran instead of going to the last spot
+        const t = S.target;
+        if (t && !t.caught){ const p = nearestFree(t.x + t.vx*.8, t.z + t.vz*.8); S.last = {x:p%N+.5, z:((p/N)|0)+.5}; }
+        S.state='investigate'; S.repath=0; S.target=null;
+      }
+    }
+
+    S.repath -= dt;
+    if (S.state==='chase'){
+      if (S.repath<=0){ S.path = findPath(S.x,S.z,S.target.x,S.target.z); S.repath = .25; }
+      const d = Math.hypot(S.target.x-S.x, S.target.z-S.z);
+      follow(S, dt, ch.speed*(d<3 ? .8 : 1.4));
+      // gun
+      if (S.seen.has(S.target) && (S.sus.get(S.target)||0) > .6){
+        turnTo(S, Math.atan2(S.target.z-S.z, S.target.x-S.x), dt*9);
+        if (S.fireCd<=0){ fire(S, S.target); S.fireCd = ch.fireRate*rnd(.85,1.15); }
+      }
+    } else if (S.state==='investigate'){
+      if (S.repath<=0){ S.path = findPath(S.x,S.z,S.last.x,S.last.z); S.repath = 1.5; }
+      if (follow(S, dt, ch.speed*1.3)) startLook(S, 2.5);
+    } else if (S.state==='search'){
+      if (follow(S, dt, ch.speed)) startLook(S, ch.look*rnd(.8,1.3));
+    } else if (S.state==='look'){
+      S.phase += dt*1.7; S.a = S.base + Math.sin(S.phase)*1.3;
+      S.lookT -= dt; if (S.lookT<=0) newSearch(S);
+    }
+  }
+
+  /* ---------- gun ---------- */
+  function fire(S, t){
+    const ch = S.ch, ca = Math.cos(S.a), sa = Math.sin(S.a);
+    // muzzle (gun sits on the seeker's right side)
+    const sc = HUMAN_SCALE*1.25;
+    const mx = S.x + (ca*.46 - sa*.19)*sc, my = .47*sc, mz = S.z + (sa*.46 + ca*.19)*sc;
+    const d = Math.hypot(t.x-mx, t.z-mz), tt = d/ch.bulletSpeed;
+    const lead = Math.min(1, .6*IQ);   // smarter seekers lead moving targets better
+    const tx = t.x + t.vx*tt*lead, ty = t.y + chestY(t), tz = t.z + t.vz*tt*lead;
+    const hd = Math.hypot(tx-mx, tz-mz);
+    const sp = ch.spread * (1 + (t.moving ? .8 : 0) + d*.05);
+    const yaw = Math.atan2(tz-mz, tx-mx) + rnd(-sp,sp);
+    const pitch = Math.atan2(ty-my, hd) + rnd(-sp,sp)*.6;
+    const v = ch.bulletSpeed;
+    const b = {x:mx, y:my, z:mz, vx:Math.cos(pitch)*Math.cos(yaw)*v, vy:Math.sin(pitch)*v, vz:Math.cos(pitch)*Math.sin(yaw)*v, life:1.6};
+    b.S = S;
+    b.mesh = new THREE.Mesh(bulletGeo, bulletMat); b.mesh.userData.shared = true;
+    fxGroup.add(b.mesh); bullets.push(b);
+    S.flashT = .06;
+    const pd = Math.hypot(G.P.x-S.x, G.P.z-S.z);
+    sfx('shot', Math.max(.15, 1 - pd/22));
+  }
+
+  function spark(x,y,z){
+    const m = new THREE.Mesh(sparkGeo, sparkMat.clone()); m.position.set(x,y,z);
+    fxGroup.add(m); sparks.push({mesh:m, t:.25});
+  }
+
+  function updateBullets(dt){
+    for (let i=bullets.length-1; i>=0; i--){
+      const b = bullets[i];
+      const steps = Math.max(1, Math.ceil(Math.hypot(b.vx,b.vy,b.vz)*dt/.1)), sd = dt/steps;
+      let dead = false;
+      for (let s=0; s<steps && !dead; s++){
+        b.x += b.vx*sd; b.y += b.vy*sd; b.z += b.vz*sd;
+        if (b.y<0 || hAt(b.x,b.z) > b.y){ spark(b.x, Math.max(.05,b.y), b.z); dead = true; break; }
+        for (const a of G.agents){
+          if (a.caught) continue;
+          if (Math.hypot(b.x-a.x, b.y-(a.y+chestY(a)), b.z-a.z) < .42*HUMAN_SCALE+.06){ hitAgent(a, b.S); spark(b.x,b.y,b.z); dead = true; break; }
+        }
+      }
+      b.life -= dt;
+      if (dead || b.life<=0){ fxGroup.remove(b.mesh); bullets.splice(i,1); continue; }
+      b.mesh.position.set(b.x,b.y,b.z);
+      b.mesh.lookAt(b.x+b.vx, b.y+b.vy, b.z+b.vz);
+      if (state!=='play') return;
+    }
+  }
+  function updateSparks(dt){
+    for (let i=sparks.length-1; i>=0; i--){
+      const s = sparks[i]; s.t -= dt;
+      if (s.t<=0){ fxGroup.remove(s.mesh); s.mesh.material.dispose(); sparks.splice(i,1); continue; }
+      s.mesh.scale.setScalar(1 + (.25-s.t)*6); s.mesh.material.opacity = s.t/.25;
+    }
+  }
+
+  function hitAgent(a, S){
+    if (a.caught) return;
+    a.hp--; a.hurt = .35;
+    S.sus.set(a, 1);
+    if (a.isPlayer){
+      S.pRoll = true;   // a seeker that just shot you knows where you are
+      sfx('hit');
+      const h = $('hurt'); h.style.transition = 'none'; h.style.opacity = 1;
+      requestAnimationFrame(() => { h.style.transition = 'opacity .6s'; h.style.opacity = a.hp>0 ? .25*(PLAYER_HP-a.hp) : .8; });
+      if (a.hp>0) toast(`총에 맞았다! 남은 체력 ${'♥'.repeat(a.hp)}`);
+    }
+    if (a.hp<=0) catchAgent(a, 'shot', S);
+  }
+
+  function catchAgent(a, how, S){
+    if (a.caught) return;
+    a.caught = true; a.how = how; a.moving = false; a.path = [];
+    for (const o of G.seekers){ o.sus.delete(a); if (o.target===a){ o.target = null; if (o!==S) newSearch(o); } }
+    startLook(S, 1.4);
+    if (a.isPlayer){ startSpectate(how, S); return; }
+    G.found++;
+    toast(how==='shot' ? `${S.ch.name}이(가) ${a.name}을(를) 쓰러뜨렸다!` : `${S.ch.name}: "${a.name} 잡았다!"`);
+    if (G.npcs.every(n=>n.caught)) setTimeout(()=>{ if (state==='play') toast('이제 남은 건 너뿐!'); }, 1600);
+  }
+
+  /* ---------- spectating: once you're out, the round keeps going and you watch the others ---------- */
+  const spectating = () => !!(G && G.dead && state!=='end' && state!=='title');
+  const specTargets = () => [...G.seekers, ...G.npcs.filter(n => !n.caught)];
+  function startSpectate(how, S){
+    G.dead = {how, S, at: SEEK_TIME - G.seekLeft};
+    G.specT = S;
+    togglePaint(false); setPicking(false); setFrozen(false);
+    $('spec').hidden = false;
+    toast(how==='shot' ? `${S.ch.name}의 총에 쓰러졌다 · 관전 모드` : `${S.ch.name}에게 잡혔다 · 관전 모드`);
+  }
+  function specStep(d){
+    const t = specTargets(), i = t.indexOf(G.specT);
+    G.specT = t[((i<0 ? 0 : i) + d + t.length) % t.length];
+  }
+  function finishSpectate(){
+    if (!spectating()) return;
+    endRound(false, G.dead.how, G.dead.S);
+  }
+  function specLabel(t){
+    if (G.seekers.includes(t)) return `술래 ${t.ch.name}` + (t.state==='chase' ? ' · 추격 중!' : t.state==='investigate' ? ' · 수상한 곳 확인' : '');
+    return `${t.name} · ${'♥'.repeat(t.hp)}` + (t.state==='flee' ? ' · 도망 중!' : '');
+  }
+
+  function update(dt){
+    G.clock += dt;
+    if (G.phase==='hide'){
+      G.hideLeft -= dt;
+      if (G.hideLeft<=0){ G.phase='seek'; for (const S of G.seekers) newSearch(S); toast(`술래 ${G.seekers.length}명: "찾는다! 보이면 쏜다!"`); }
+    } else {
+      G.seekLeft -= dt;
+      if (G.seekLeft<=0){ G.seekLeft = 0; if (G.dead) finishSpectate(); else endRound(true); return; }
+      G.honkT = (G.honkT ?? HONK_EVERY) - dt;
+      if (G.honkT<=0){ G.honkT += HONK_EVERY; honk(); }
+    }
+    if (G.dead){
+      if (!G.specT || G.specT.caught){ const t = specTargets(); G.specT = t[G.seekers.length] || G.seekers[0]; }   // watched friend got caught → next friend
+      if (G.npcs.every(n => n.caught) && !G.endPending){ G.endPending = true; setTimeout(finishSpectate, 2200); toast('모두 잡혔다! 곧 결과가 나와요'); }
+    }
+    updatePlayer(dt);
+    for (const a of G.npcs) updateNPC(a, dt);
+    for (const a of G.agents) tickAgent(a, dt);
+    for (const S of G.seekers){ updateSeeker(S, dt); if (state!=='play') return; }
+    updateBullets(dt);
+  }
+
+  /* ---------- painting ---------- */
+  let tool = 'brush', paintCol = '#6f8f5a', avgTimer = 0, stroke = null;
+  function recalcAvg(){
+    const d = pctx.getImageData(0,0,256,128).data; let r=0,g=0,b=0;
+    for (let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
+    const n = d.length/4; playerRGB = [r/n, g/n, b/n];
+    if (G) G.P.rgb = playerRGB;
+  }
+  function scheduleAvg(){ if (!avgTimer) avgTimer = setTimeout(() => { avgTimer = 0; recalcAvg(); }, 80); }
+  function setPaintCol(hex){ paintCol = hex; $('pColor').value = hex; }
+
+  function cvPos(e){ const r = paintCv.getBoundingClientRect(); return {x:(e.clientX-r.left)*256/r.width, y:(e.clientY-r.top)*128/r.height}; }
+  /* one brush step on the paint canvas: from prev (or a dot) to p, optionally clipped to one body part's patch */
+  function paintAt(p, prev, rect){
+    const size = +$('size').value;
+    pctx.save();
+    if (rect){ pctx.beginPath(); pctx.rect(rect[0], rect[1], rect[2], rect[3]); pctx.clip(); }
+    // brush paints the chosen colour, eraser paints the body back to its original white
+    pctx.strokeStyle = tool==='erase' ? PLAYER.color : paintCol; pctx.lineWidth = size; pctx.lineCap = 'round';
+    pctx.beginPath(); pctx.moveTo((prev||p).x, (prev||p).y); pctx.lineTo(p.x, p.y); pctx.stroke();
+    pctx.restore();
+    paintTex.needsUpdate = true; scheduleAvg();
+  }
+  function dab(p){ paintAt(p, stroke, null); stroke = p; }
+
+  /* ---------- eyedropper: P turns the mouse into a magnifier, the next left click picks that colour ---------- */
+  let picking = false;
+  function setPicking(on){
+    picking = on;
+    document.body.classList.toggle('picking', on);
+    $('pickBtn').classList.toggle('on', on); $('pickBtn2').classList.toggle('on', on);
+    if (on) toast(TOUCH ? '스포이드: 색을 가져올 곳을 터치하세요' : '스포이드: 색을 가져올 곳을 클릭하세요 (우클릭·P·Esc 취소)');
+  }
+  // the real (unlit) colour under a screen point — the same colour the seekers compare your body against
+  function colorAt(sx, sy){
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set((sx-r.left)/r.width*2 - 1, 1 - (sy-r.top)/r.height*2);
+    ray.setFromCamera(ndc, camera);
+    for (const h of ray.intersectObjects([mapGroup, agentGroup], true)){
+      const o = h.object, mat = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (o.isSprite || o.isLine || o.userData.fan || !mat || !o.visible) continue;
+      if (mat.transparent && mat.opacity < .5) continue;          // walls faded out for the camera
+      const img = mat.map && mat.map.image;
+      if (img && h.uv && img.getContext){
+        const x = Math.max(0, Math.min(img.width-1, Math.floor(h.uv.x*img.width)));
+        const y = Math.max(0, Math.min(img.height-1, Math.floor((mat.map.flipY ? 1-h.uv.y : h.uv.y)*img.height)));
+        const d = img.getContext('2d').getImageData(x, y, 1, 1).data;
+        return rgbHex([d[0], d[1], d[2]]);
+      }
+      if (mat.color) return '#' + mat.color.getHexString();
+    }
+    return null;
+  }
+  function pickFrom(e){
+    let hex = null;
+    if (e.target===paintCv){
+      const p = cvPos(e);
+      const d = pctx.getImageData(Math.max(0,Math.min(255,Math.floor(p.x))), Math.max(0,Math.min(127,Math.floor(p.y))), 1, 1).data;
+      hex = rgbHex([d[0], d[1], d[2]]);
+    } else if (e.target.closest('[data-col]')) hex = e.target.closest('[data-col]').dataset.col;
+    else if (e.target===renderer.domElement) hex = colorAt(e.clientX, e.clientY);
+    if (hex){ setPaintCol(hex); toast(`색을 가져왔어요 ${hex}`); }
+    setPicking(false);
+  }
+  // capture phase: while picking, the click only picks — it doesn't paint, drag the camera or press buttons
+  addEventListener('pointerdown', e => {
+    if (!picking) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.button===2){ setPicking(false); return; }
+    if (e.button===0){ pickFrom(e); swallowClick = true; }
+  }, true);
+  let swallowClick = false;
+  addEventListener('click', e => { if (swallowClick){ swallowClick = false; e.preventDefault(); e.stopPropagation(); } }, true);
+  addEventListener('contextmenu', e => { if (picking) e.preventDefault(); }, true);
+
+  /* painting straight onto the 3D body: drag over the character while the paint panel is open */
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  let stroke3 = null;
+  function bodyHit(e){
+    if (!painting || state!=='play' || !G || G.P.caught) return null;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set((e.clientX-r.left)/r.width*2 - 1, 1 - (e.clientY-r.top)/r.height*2);
+    ray.setFromCamera(ndc, camera);
+    const h = ray.intersectObjects(G.P.mesh.parts, false)[0];
+    return h && h.uv ? {part:h.object, x:h.uv.x*256, y:(1-h.uv.y)*128} : null;
+  }
+  function bodyStroke(e, first){
+    const h = bodyHit(e);
+    if (!h) return first ? false : (stroke3.part = null, true);
+    // a jump to another body part or across the texture seam starts a fresh dab instead of a long line
+    const joined = !first && stroke3.part===h.part && Math.hypot(h.x-stroke3.x, h.y-stroke3.y) < 40;
+    paintAt(h, joined ? stroke3 : null, h.part.userData.rect);
+    stroke3 = {id:e.pointerId, part:h.part, x:h.x, y:h.y};
+    return true;
+  }
+  paintCv.addEventListener('pointerdown', e => {
+    e.preventDefault(); const p = cvPos(e);
+    paintCv.setPointerCapture(e.pointerId); stroke = p; dab(p);
+  });
+  paintCv.addEventListener('pointermove', e => { if (stroke) dab(cvPos(e)); });
+  for (const ev of ['pointerup','pointercancel']) paintCv.addEventListener(ev, () => { stroke = null; recalcAvg(); });
+
+  document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => {
+    tool = b.dataset.tool;
+    document.querySelectorAll('[data-tool]').forEach(x => x.classList.toggle('on', x===b));
+  }));
+  $('pColor').addEventListener('input', e => paintCol = e.target.value);
+  $('pickBtn').addEventListener('click', () => setPicking(!picking));
+  $('paintClose').addEventListener('click', () => togglePaint(false));
+  $('paint').addEventListener('click', e => {
+    const c = e.target.closest('[data-col]'); if (c) setPaintCol(c.dataset.col);
+    if (e.target.tagName==='BUTTON') e.target.blur();   // keep Space = jump, not "click the focused button"
+  });
+  $('size').addEventListener('change', e => e.target.blur());
+
+  function updateMatch(){
+    if (!G || !painting) return;
+    const pct = matchPct(G.P.camo.D);
+    const el = $('pMatch'); el.textContent = pct + '%';
+    el.className = 'match ' + (pct>=HIDE_PCT ? 'hid' : pct>=MID_PCT ? 'mid' : 'exp');
+  }
+
+  function togglePaint(on){
+    painting = on===undefined ? !painting : on;
+    $('paint').classList.toggle('on', painting);
+    $('paintBtn').classList.toggle('on', painting);
+    $('view').classList.toggle('painting', painting);
+    stroke3 = null;
+    if (painting && G && !G.P.caught){ cam.saved = cam.dist; cam.dist = 2; }
+    else if (cam.saved){ cam.dist = cam.saved; cam.saved = 0; }
+  }
+
+  /* ---------- rounds / overlays ---------- */
+  function seekerCard(ch, prefix){
+    return `<div class="next"><span class="dot" style="background:${ch.color}"></span><div><span>${prefix}</span><b>${ch.name}</b><span>${ch.trait}</span></div></div>`;
+  }
+
+  function endRound(win, how, S){
+    state = 'end';
+    togglePaint(false);
+    R.played++;
+    S = S || G.S;
+    $('spec').hidden = true; setPicking(false);
+    const names = G.seekers.map(o => o.ch.name).join('·');
+    if (win){ R.wins++; R.streak++; } else R.streak = 0;
+    if (R.streak>R.best){ R.best = R.streak; try { localStorage.setItem('chs-best', R.best); } catch(e) {} }
+    const survived = G.dead ? G.dead.at : SEEK_TIME - G.seekLeft;
+    const next = CHARS[(R.idx+1) % CHARS.length];
+    const title = win ? '5분 버텼다!' : how==='shot' ? `${S.ch.name}의 총에 쓰러졌다` : `${S.ch.name}에게 잡혔다`;
+    const msg = win
+      ? `술래 ${names}이(가) 끝까지 당신을 찾지 못했습니다. 다른 친구는 ${G.found}명 당했어요.`
+      : `${fmt(survived)} 동안 숨어 있었어요. 술래는 몸에 칠한 색이 뒤에 있는 바닥·벽·가구 색과 얼마나 같은지만 보고 찾아요. 일치율 ${HIDE_PCT}% 이상이면 보이지 않아요. 총알은 벽 뒤로 숨으면 막을 수 있어요.`;
+    setTimeout(() => showOverlay(`<div class="card">
+      <h2 class="${win?'good':'bad'}">${title}</h2>
+      <p>${msg}</p>
+      <div class="stats">
+        <div><small>이번 라운드</small><b>${win ? '생존' : fmt(survived)}</b></div>
+        <div><small>생존 라운드</small><b>${R.wins} / ${R.played}</b></div>
+        <div><small>최고 연속</small><b>${R.best}</b></div>
+      </div>
+      ${seekerCard(next, `다음 라운드 술래 교대 → ROUND ${R.played+1}`)}
+      <button class="go" data-act="next">다음 라운드</button></div>`), win ? 200 : 1000);
+  }
+
+  function showTitle(){
+    state = 'title';
+    showOverlay(`<div class="card">
+      <h2 class="good">카멜레온 숨바꼭질</h2>
+      <p>표정 없는 <b>파란 사람이 총을 든 술래</b>, 당신은 숨는 <b>하얀 사람</b>입니다. ${HIDE_TIME}초 동안 숨을 곳을 찾고 <b>C</b>를 눌러 몸에 <b>직접</b> 색을 칠하세요. 자동으로 색이 바뀌지 않으니 주변을 눈으로 보고 색을 골라야 해요. 몸의 평균 색이 뒤의 바닥·벽·가구와 비슷할수록 안 보입니다. 술래는 <b>2분</b> 동안 찾고, 보이면 쏩니다. 찾는 동안 <b>${HONK_EVERY}초마다 경적(빵빵)</b>이 울려 숨은 위치가 술래에게 알려져요. 체력은 ♥ 3개.</p>
+      <p style="font-size:13px;color:var(--mute)">무대는 <b>집</b> 맵이에요. 천장과 벽이 있는 방 13개짜리 큰 집이에요. 거실·주방·식당·서재·현관·안방·드레스룸·아이방·놀이방·욕실·세탁실·창고·손님방의 바닥, 러그, 소파, 침대 색을 몸에 그려 숨으세요. 침대·소파·조리대 위로 점프해서 올라갈 수 있고, 벽이나 큰 가구 뒤에 숨으면 총알을 막을 수 있어요. 시야를 가리는 벽은 투명해지고, 시점을 낮추면 천장이 보여요. 라운드가 끝날 때마다 술래가 바뀌고, 술래마다 성격과 총 솜씨가 달라요.</p>
+      <p style="font-size:13px;color:var(--mute)">이번엔 <b>술래가 ${SEEKER_COUNT}명</b>이고 더 똑똑해졌어요. 서로 다른 곳을 나눠 찾고, 한 명이 누군가를 발견하면 무전으로 다른 술래를 부릅니다. 점프 중에 <b>R</b>을 누르면 <b>공중에서도</b> 그 자리에 멈출 수 있어요.</p>
+      <div class="keys"><span><kbd>WASD</kbd> 이동</span><span><kbd>Space</kbd> 점프</span><span><kbd>Shift</kbd> 살금</span><span><kbd>C</kbd> 직접 칠하기</span><span><kbd>P</kbd> 스포이드</span><span><kbd>T</kbd> 포즈 (기본·T포즈·눕기)</span><span><kbd>R</kbd> 제자리 고정 (공중 가능)</span><span><kbd>Esc</kbd> 일시정지</span></div>
+      <p class="touchOnly" style="font-size:13px;color:var(--mute)"><b>📱 터치 조작</b> · 왼쪽 <b>조이스틱</b>으로 이동 (살짝 밀면 살금살금) · 빈 화면을 <b>드래그</b>하면 시점 회전, <b>두 손가락</b>으로 줌 · <b>그리기</b>를 누르고 캐릭터 몸을 문질러 색칠 · <b>스포이드</b>를 누르고 바닥·벽·가구를 터치하면 그 색을 가져와요 · 가로 화면을 추천해요.</p>
+      <p class="kbdOnly" style="font-size:13px;color:var(--mute)"><b>P</b>를 누르면 마우스가 돋보기로 바뀌어요. 바닥·벽·가구를 <b>좌클릭</b>하면 그 색을 그대로 가져옵니다. 잡히면 <b>관전 모드</b>로 남은 친구와 술래를 지켜볼 수 있어요.</p>
+      ${seekerCard(CHARS[0], 'ROUND 1 대장 술래')}
+      <button class="go" data-act="next">시작하기</button></div>`);
+  }
+
+  function showOverlay(html){
+    const ov = $('ov'); ov.innerHTML = html; ov.hidden = false;
+    const b = ov.querySelector('button'); if (b) b.focus({preventScroll:true});
+  }
+  $('ov').addEventListener('click', e => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act==='next'){
+      // phones: go fullscreen and unlock sound on the first tap (both need a user gesture)
+      if (TOUCH && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+      try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume?.(); } catch(err) {}
+      if (state==='end') R.idx++; startRound();
+    }
+    else if (act==='resume'){ state='play'; $('ov').hidden = true; }
+  });
+  function togglePause(){
+    if (state==='play'){ state='paused'; showOverlay(`<div class="card"><h2>일시정지</h2><button class="go" data-act="resume">계속하기</button></div>`); }
+    else if (state==='paused'){ state='play'; $('ov').hidden = true; }
+  }
+
+  let roomBannerTimer;
+  function showRoomBanner(name){
+    const b = $('roomBanner'); b.textContent = name; b.classList.add('on');
+    clearTimeout(roomBannerTimer); roomBannerTimer = setTimeout(() => b.classList.remove('on'), 1800);
+  }
+  let toastTimer;
+  function toast(msg){
+    const t = $('toast'); t.textContent = msg; t.classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1900);
+  }
+
+  /* ---------- HUD ---------- */
+  function buildHiderChips(){
+    $('hiders').innerHTML = '<span class="lbl">숨는 사람</span>' + G.agents.map((a,i) =>
+      `<div class="chip${a.isPlayer?' me':''}" id="hc${i}"><span class="dot" style="background:#${a.color.getHexString()}"></span><b>${a.name}</b><small></small></div>`).join('');
+  }
+  const hudCache = {};
+  function setText(id, v){ if (hudCache[id]!==v){ hudCache[id]=v; $(id).textContent = v; } }
+  function setClass(id, v){ const el = $(id); if (el.className!==v) el.className = v; }
+
+  function hud(){
+    if (!G) return;
+    const S = G.S, P = G.P, SS = G.seekers;
+    if (spectating() && G.specT) setText('specName', specLabel(G.specT));
+    setText('roundLbl', `ROUND ${R.idx+1} · 술래 ${SS.length}명`);
+    setText('seekerName', SS.map(o => o.ch.name).join(' · ')); setText('seekerTrait', S.ch.trait);
+    $('seekerDot').style.background = S.ch.color;
+    if (G.phase==='hide'){ setText('phaseLbl', '숨는 시간'); setText('timer', fmt(G.hideLeft)); setClass('timer','timer warn'); }
+    else { setText('phaseLbl', '술래가 찾는 중'); setText('timer', fmt(G.seekLeft)); setClass('timer', G.seekLeft<30 ? 'timer warn' : 'timer'); }
+
+    G.agents.forEach((a,i) => {
+      const el = $('hc'+i); if (!el) return;
+      el.classList.toggle('out', a.caught);
+      const st = a.caught ? (a.how==='shot' ? '쓰러짐' : '잡힘') : (G.phase==='hide' ? '숨는 중' : '♥'.repeat(a.hp));
+      const sm = el.querySelector('small'); if (sm.textContent!==st) sm.textContent = st;
+    });
+
+    const rr = M.roomOf[cellI(P.x,P.z)];
+    setText('roomTxt', MAP_NAME + (rr>=0 ? ' · ' + ROOMS[rr].name + (P.y>.3 ? ' (가구 위)' : '') : ''));
+    if (rr>=0 && rr!==G.lastRoom){   // first banner of a round also names the map
+      showRoomBanner((G.lastRoom===undefined ? MAP_NAME + ' · ' : '') + ROOMS[rr].name); G.lastRoom = rr;
+    }
+    setText('hp', '♥'.repeat(Math.max(0,P.hp)) + '♡'.repeat(PLAYER_HP-Math.max(0,P.hp)));
+    $('bodySw').style.background = rgbCss(P.rgb);
+    $('bgSw').style.background = rgbCss(P.camo.best);
+    const pct = matchPct(P.camo.D);
+    setText('matchTxt', pct + '%');
+    setClass('matchTxt', pct>=HIDE_PCT ? 'hid' : pct>=MID_PCT ? 'mid' : 'exp');
+
+    let vs, vc;
+    if (P.caught){ vs='쓰러짐'; vc='exp'; }
+    else if (pct>=HIDE_PCT){ vs='완벽 위장 · 안 보임'; vc='hid'; }
+    else if (pct>=MID_PCT){ vs='어설픈 위장 · 가까우면 보임'; vc='mid'; }
+    else { vs='색 불일치 · 눈에 띔'; vc='exp'; }
+    setText('visTxt', vs); setClass('visTxt', vc);
+
+    const sus = Math.max(...SS.map(o => o.sus.get(P) || 0));
+    const bar = $('susBar').firstElementChild;
+    bar.style.width = (sus*100).toFixed(1)+'%';
+    bar.style.background = sus>.4 ? 'var(--alarm)' : sus>.15 ? 'var(--hazard)' : 'var(--calm)';
+    const chasing = SS.filter(o => o.state==='chase' && o.target===P).length;
+    const eye = G.phase==='hide' ? '눈 감음' : chasing ? (sus>.6 ? '조준 중!' : '쫓기는 중!') + (chasing>1 ? ` ×${chasing}` : '') : SS.some(o => o.seeingP) ? '보고 있음' : '안전';
+    setText('eye', eye);
+    $('eye').style.color = eye==='안전'||eye==='눈 감음' ? 'var(--calm)' : eye==='보고 있음' ? 'var(--hazard)' : 'var(--alarm)';
+    updateMatch();
+  }
+
+  /* ---------- render ---------- */
+  const FAN_COL = {search:0xebe7dc, look:0xebe7dc, investigate:0xf0b429, chase:0xe5484d};
+  function drawSeeker(S, dt){
+    const m = S.mesh, fan = S.fan.mesh, fanMat = S.fan.mat, fanPos = S.fan.pos, fanGeo = S.fan.geo;
+    m.g.position.set(S.x, 0, S.z); m.g.rotation.y = -S.a;
+    const moving = S.path.length>0 && S.state!=='look';
+    if (moving) S.walkT += dt*12;
+    m.body.position.y = moving ? Math.abs(Math.sin(S.walkT))*.05 : 0;
+    swingLimbs(m, S.walkT, moving);
+    m.flash.visible = S.flashT > 0;
+
+    if (G.phase==='hide'){
+      fan.visible = false;
+      setLabel(S.label, `${S.ch.name} ${Math.ceil(G.hideLeft)}`, S.ch.color);
+      return;
+    }
+    const txt = S.state==='chase' ? `! ${S.ch.name}` : S.state==='investigate' ? `? ${S.ch.name}` : `술래 ${S.ch.name}`;
+    setLabel(S.label, txt, S.ch.color);
+
+    fan.visible = true;
+    fanMat.color.setHex(FAN_COL[S.state] || 0xebe7dc);
+    fanMat.opacity = S.state==='chase' ? .3 : S.state==='investigate' ? .22 : .15;
+    fanPos[0]=S.x; fanPos[1]=.03; fanPos[2]=S.z;
+    for (let k=0;k<=SEG;k++){
+      const ang = S.a - S.ch.fov + 2*S.ch.fov*k/SEG, ca=Math.cos(ang), sa=Math.sin(ang);
+      let d = 0; while (d<S.ch.range && hAt(S.x+ca*d, S.z+sa*d) <= EYE) d += .1;
+      const o = (k+1)*3; fanPos[o]=S.x+ca*d; fanPos[o+1]=.03; fanPos[o+2]=S.z+sa*d;
+    }
+    fanGeo.attributes.position.needsUpdate = true;
+  }
+
+  function updateCamera(dt){
+    cam.yaw += (K.rotR - K.rotL) * dt * 2.2;
+    if (state==='title' || !G){
+      cam.yaw += dt*.12;
+      const d = N*.95;
+      camera.position.set(C + Math.sin(cam.yaw)*d, N*.65, C + Math.cos(cam.yaw)*d);
+      camera.lookAt(C, 0, C);
+      return;
+    }
+    const P = spectating() && G.specT ? G.specT : G.P, k = Math.min(1, dt*(spectating() ? 5 : 10));   // spectating: follow whoever you're watching
+    cam.tx += (P.x - cam.tx)*k; cam.tz += (P.z - cam.tz)*k; cam.ty += ((P.y||0) + .45 - cam.ty)*k;
+    const cp = Math.cos(cam.pitch);
+    camera.position.set(cam.tx + Math.sin(cam.yaw)*cp*cam.dist, cam.ty + Math.sin(cam.pitch)*cam.dist, cam.tz + Math.cos(cam.yaw)*cp*cam.dist);
+    camera.lookAt(cam.tx, cam.ty, cam.tz);
+    fadeWalls(dt);
+  }
+
+  /* walls standing between the camera and the player turn see-through */
+  function fadeWalls(dt){
+    hideSet.clear();
+    const dx = camera.position.x-cam.tx, dy = camera.position.y-cam.ty, dz = camera.position.z-cam.tz;
+    const hd = Math.hypot(dx,dz) || 1, len = Math.hypot(dx,dy,dz), n = Math.ceil(len/.2);
+    const px = -dz/hd, pz = dx/hd;
+    for (let i=1; i<=n; i++){
+      const t = i/n; if (cam.ty + dy*t > WALL_H) break;
+      const wd = Math.min(1, .3 + t*len*.12);   // narrow at the player (walls it hugs stay solid), wider towards the camera
+      for (const s of [-1,-.5,0,.5,1]){
+        const cx = Math.floor(cam.tx + dx*t + px*s*wd), cz = Math.floor(cam.tz + dz*t + pz*s*wd);
+        if (inB(cx,cz) && M.wallFx.has(idx(cx,cz))) hideSet.add(idx(cx,cz));
+      }
+    }
+    for (const c of hideSet) fading.add(c);
+    for (const c of fading){
+      const w = M.wallFx.get(c), tgt = hideSet.has(c) ? .12 : 1;
+      w.op += (tgt - w.op) * Math.min(1, dt*10);
+      if (tgt===1 && w.op>.98){ w.op = 1; fading.delete(c); }
+      for (const m of w.mats){ m.mat.transparent = w.op<1 || m.base<1; m.mat.opacity = w.op*m.base; m.mat.depthWrite = w.op===1; }
+    }
+  }
+
+  let lastT = performance.now();
+  function frame(now){
+    const dt = Math.min(.05, (now-lastT)/1000); lastT = now;
+    if (state==='play') update(dt);
+    if (G){
+      if (state!=='play') for (const a of G.agents) tickAgent(a, 0);
+      for (const S of G.seekers) drawSeeker(S, state==='play' ? dt : 0);
+      updateSparks(dt);
+    }
+    updateCamera(dt);
+    hud();
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+
+  function resize(){
+    renderer.setSize(innerWidth, innerHeight);
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  }
+  addEventListener('resize', resize);
+
+  /* ---------- input ---------- */
+  const KEYMAP = {KeyW:'fwd',ArrowUp:'fwd',KeyS:'back',ArrowDown:'back',KeyA:'left',ArrowLeft:'left',KeyD:'right',ArrowRight:'right',
+                  ShiftLeft:'sneak',ShiftRight:'sneak',KeyQ:'rotL',KeyE:'rotR'};
+  addEventListener('keydown', e => {
+    if (e.target.type==='color') return;
+    if (e.code==='KeyP'){ if (!e.repeat && state==='play') setPicking(!picking); return; }
+    if (e.code==='Escape' && picking){ setPicking(false); return; }
+    if (spectating()){
+      if (['KeyA','ArrowLeft','KeyD','ArrowRight'].includes(e.code)){ e.preventDefault(); if (!e.repeat) specStep(e.code==='KeyA'||e.code==='ArrowLeft' ? -1 : 1); return; }
+      if (e.code==='Enter'){ e.preventDefault(); finishSpectate(); return; }
+    }
+    if (KEYMAP[e.code]){ K[KEYMAP[e.code]] = 1; if (state==='play') e.preventDefault(); }
+    else if (e.code==='Space' && state==='play'){ e.preventDefault(); if (!e.repeat) jumpQueued = true; }
+    else if (e.code==='KeyC' && state==='play'){ if (!e.repeat) togglePaint(); }
+    else if (e.code==='Escape' && painting) togglePaint(false);
+    else if (e.code==='KeyR' && state==='play'){ if (!e.repeat) setFrozen(!frozen); }
+    else if (e.code==='KeyT' && state==='play'){ if (!e.repeat) cyclePose(); }
+    else if (['Digit1','Digit2','Digit3'].includes(e.code) && state==='play'){ if (!e.repeat) setPose(POSES[+e.code.slice(5)-1]); }
+    else if (e.code==='Escape' && (state==='play' || state==='paused')){ if (!e.repeat) togglePause(); }
+  });
+  addEventListener('keyup', e => { if (KEYMAP[e.code]) K[KEYMAP[e.code]] = 0; });
+  addEventListener('blur', () => { for (const k in K) K[k] = 0; });
+
+  const cvEl = renderer.domElement;
+  let drag = null, pinch = 0;
+  const touches = new Map();   // fingers on the 3D view; two of them = pinch zoom
+  const pinchDist = () => { const [a,b] = [...touches.values()]; return Math.hypot(a.x-b.x, a.y-b.y); };
+  cvEl.addEventListener('pointerdown', e => {
+    cvEl.setPointerCapture(e.pointerId);
+    touches.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if (touches.size===2 && !stroke3){ pinch = pinchDist(); drag = null; return; }
+    if (touches.size>1) return;
+    if (!stroke3 && bodyStroke(e, true)){ if (!stroke3) stroke3 = {id:e.pointerId, part:null, x:0, y:0}; return; }   // drag on the body = paint
+    drag = {x:e.clientX, y:e.clientY, id:e.pointerId};                                                              // drag elsewhere = look around
+  });
+  cvEl.addEventListener('pointermove', e => {
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if (stroke3 && e.pointerId===stroke3.id){ bodyStroke(e, false); return; }
+    if (pinch && touches.size===2){
+      const d = pinchDist();
+      if (d>10){ cam.dist = Math.max(1.8, Math.min(16, cam.dist*pinch/d)); pinch = d; }
+      return;
+    }
+    if (!drag || e.pointerId!==drag.id) return;
+    cam.yaw -= (e.clientX-drag.x)*.006;
+    cam.pitch = Math.max(.04, Math.min(1.25, cam.pitch + (e.clientY-drag.y)*.005));
+    drag.x = e.clientX; drag.y = e.clientY;
+  });
+  for (const ev of ['pointerup','pointercancel']) cvEl.addEventListener(ev, e => {
+    touches.delete(e.pointerId); if (touches.size<2) pinch = 0;
+    if (stroke3 && e.pointerId===stroke3.id){ stroke3 = null; recalcAvg(); }
+    if (drag && e.pointerId===drag.id) drag = null;
+  });
+  cvEl.addEventListener('wheel', e => { e.preventDefault(); cam.dist = Math.max(1.8,Math.min(16, cam.dist + e.deltaY*.006)); }, {passive:false});
+
+  // joystick: the knob follows the finger inside the ring; direction is relative to the camera like WASD
+  const joyEl = $('joy'), knob = joyEl.firstElementChild;
+  let joyId = null;
+  function joyMove(e){
+    const r = joyEl.getBoundingClientRect(), R0 = r.width/2;
+    let dx = e.clientX - (r.left+R0), dy = e.clientY - (r.top+R0);
+    const d = Math.hypot(dx,dy), max = R0*.75;
+    if (d>max){ dx *= max/d; dy *= max/d; }
+    knob.style.transform = `translate(${dx}px,${dy}px)`;
+    const m = Math.min(1, d/max);
+    if (m<.18){ joy.x = joy.y = joy.m = 0; return; }          // dead zone
+    joy.x = dx/max; joy.y = -dy/max; joy.m = m;
+  }
+  function joyEnd(){ joyId = null; joy.x = joy.y = joy.m = 0; knob.style.transform = ''; joyEl.classList.remove('on'); }
+  joyEl.addEventListener('pointerdown', e => {
+    e.preventDefault(); joyId = e.pointerId; joyEl.setPointerCapture?.(e.pointerId);
+    joyEl.classList.add('on'); joyMove(e);
+  });
+  joyEl.addEventListener('pointermove', e => { if (e.pointerId===joyId) joyMove(e); });
+  for (const ev of ['pointerup','pointercancel','lostpointercapture']) joyEl.addEventListener(ev, e => { if (e.pointerId===joyId) joyEnd(); });
+  addEventListener('blur', joyEnd);
+  addEventListener('gesturestart', e => e.preventDefault());   // iOS: no page zoom from pinching
+  $('jumpBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state==='play') jumpQueued = true; });
+  $('paintBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state==='play') togglePaint(); });
+  $('freezeBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state==='play') setFrozen(!frozen); });
+  $('poseBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state==='play') cyclePose(); });
+  $('pickBtn2').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (state==='play' && !spectating()) setPicking(!picking); });
+  $('pauseBtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state==='play' || state==='paused') togglePause(); });
+  $('specPrev').addEventListener('click', e => { e.target.blur(); if (spectating()) specStep(-1); });
+  $('specNext').addEventListener('click', e => { e.target.blur(); if (spectating()) specStep(1); });
+  $('specEnd').addEventListener('click', e => { e.target.blur(); finishSpectate(); });
+  $('sneakBtn').addEventListener('pointerdown', e => { e.preventDefault(); sneakToggle = !sneakToggle; $('sneakBtn').classList.toggle('on', sneakToggle); });
+
+  /* ---------- boot ---------- */
+  resize();
+  defaultPaint();
+  M = generateMap(); buildMap();
+  showTitle();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
